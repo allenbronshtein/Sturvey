@@ -1,0 +1,7 @@
+C:\Users\abronshtein\Desktop\my test files\Sturvey\bin\Debug\sturvey-app.exe.config
+C:\Users\abronshtein\Desktop\my test files\Sturvey\bin\Debug\sturvey-app.exe
+C:\Users\abronshtein\Desktop\my test files\Sturvey\bin\Debug\sturvey-app.pdb
+C:\Users\abronshtein\Desktop\my test files\Sturvey\obj\Debug\sturvey-app.csprojAssemblyReference.cache
+C:\Users\abronshtein\Desktop\my test files\Sturvey\obj\Debug\sturvey-app.csproj.CoreCompileInputs.cache
+C:\Users\abronshtein\Desktop\my test files\Sturvey\obj\Debug\sturvey-app.exe
+C:\Users\abronshtein\Desktop\my test files\Sturvey\obj\Debug\sturvey-app.pdb
