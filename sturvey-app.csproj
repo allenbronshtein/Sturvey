@@ -55,7 +55,6 @@
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Include="Security\Security.cs" />
-    <Compile Include="Tests\Tests.cs" />
     <Compile Include="Uniques\Uniques.cs" />
   </ItemGroup>
   <ItemGroup>

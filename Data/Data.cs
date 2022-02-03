@@ -13,7 +13,6 @@ namespace sturvey_app.Data
     public interface IUnique
     {
         ID id(); // Return instance ID 
-        IUnique clone(); // Returns copy of instance   
         IUnique loader(DataBlock dataBlock);
     }
     public interface DataBlock { } //Serialable-Deserializable objects.
@@ -171,7 +170,7 @@ namespace sturvey_app.Data
             Table table = get_table(table_name);
             if (table != default(Table))
             {
-                value = table.read(key).clone();                
+                value = table.read(key);                
             }
             return value;
         }

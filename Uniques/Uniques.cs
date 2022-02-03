@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using sturvey_app.Data;
+using sturvey_app.Security;
 using System.Collections.Generic;
 using ID = System.Int32;
 
@@ -8,6 +9,7 @@ namespace sturvey_app.Users
     public class User : IUnique
     {
         private ID m_id_;
+        private string m_password_;
         private List<int> m_surveys_by_me_ = new List<int>();
         private List<int> m_surveys_to_me_ = new List<int>();
 
@@ -16,30 +18,21 @@ namespace sturvey_app.Users
         {
             User_Data user = (User_Data)data;
             m_id_ = user.id;
+            m_password_ = user.password;
             m_surveys_by_me_ = user.surveys_by_me;
             m_surveys_to_me_ = user.surveys_to_me;
             return this;
-        }
-        public User(ID id)
+        }//loading
+        public User(ID id,string password)
         {
             m_id_ = id;
+            m_password_ = Hash.ComputeSha256Hash(password);
         } // Constructor
-        public User(User_Data data)
-        {
-            m_id_ = data.id;
-            m_surveys_by_me_ = data.surveys_by_me;
-            m_surveys_to_me_ = data.surveys_to_me;
-        } // Copy Constructor
 
         //----------IUnique Interface-------------//
         public ID id()
         {
             return m_id_;
-        }
-        public IUnique clone()
-        {
-            User_Data data = new User_Data(this);
-            return new User(data);
         }
         //----------------------------------------//
 
@@ -63,18 +56,24 @@ namespace sturvey_app.Users
               return m_surveys_to_me_;
             }
         }
+        public string Password
+        {
+            get { return m_password_; }
+        }
     }
     public class User_Data : DataBlock
     {
         public ID id;
+        public string password;
         public List<int> surveys_by_me = new List<int>();
         public List<int> surveys_to_me = new List<int>();
         public User_Data(User user)
         {
             id = user.id();
+            password = user.Password;
             surveys_by_me = user.Surveys_by_me;
             surveys_to_me = user.Surveys_to_me;
-        } // Constructor builds struct data
+        } // Saving
 
         [JsonConstructor]
         public User_Data() { }
@@ -101,23 +100,11 @@ namespace sturvey_app.Surveys
         {
             m_id_ = id;
         } // Constructor
-        public Survey(Survey_Data data)
-        {
-            m_id_ = data.id;
-            m_survey_ = data.survey;
-            m_votes_ = data.votes;
-
-        } // Copy Constructor
 
         //----------IUnique Interface-------------//
         public ID id()
         {
             return m_id_;
-        }
-        public IUnique clone()
-        {
-            Survey_Data data = new Survey_Data(this);
-            return new Survey(data);
         }
         //----------------------------------------//
 
@@ -145,7 +132,7 @@ namespace sturvey_app.Surveys
             id = survey_.id();
             survey = survey_.survey;
             votes = survey_.votes;
-        } // Constructor builds struct data
+        } // Saving
 
         [JsonConstructor]
         public Survey_Data() { }
