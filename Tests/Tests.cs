@@ -1,7 +1,5 @@
-﻿using sturvey_app.Data;
+﻿using sturvey_app.Surveys;
 using sturvey_app.Users;
-using ID = System.Int32;
-using System;
 
 namespace sturvey_app.Tests
 {
@@ -14,6 +12,13 @@ namespace sturvey_app.Tests
             db.add_to_table("Users", new User(1234));
             db.add_to_table("Users", new User(4567));
             db.add_to_table("Users", new User(15245));
+            db.delete_from_table("Users",15245);
+            db.delete_from_table("Users", 15245);
+
+            db.create_table("Surveys", typeof(Survey));
+            db.add_to_table("Surveys", new User(1234));
+            db.add_to_table("Surveys", new User(4567));
+            db.add_to_table("Surveys", new User(15245));
         }
 
         public static void test_load_from_disk()

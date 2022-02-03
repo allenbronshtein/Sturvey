@@ -1,10 +1,14 @@
 ﻿using Newtonsoft.Json;
+using sturvey_app.Surveys;
 using sturvey_app.Users;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using ID = System.Int32;
+using System.Security.Cryptography;
+using System.Text;
+using sturvey_app.Security;
 
 namespace sturvey_app.Data
 {
@@ -53,6 +57,7 @@ namespace sturvey_app.Data
                 ID key = value.id();
                 if (m_data_.Contains(key) && value.GetType().FullName == m_valT_)
                 {
+                    m_data_.Remove(key);
                     m_data_[key] = value;
                 }
             }
@@ -80,6 +85,10 @@ namespace sturvey_app.Data
                     {
                         load<User, User_Data>(typeof(User), typeof(User_Data));
                     }
+                    else if (m_valT_ == typeof(Survey).FullName)
+                    {
+                        load<Survey, Survey_Data>(typeof(Survey), typeof(Survey_Data));
+                    }
                 }
 
                 if (m_data_.Count == 0)
@@ -99,22 +108,27 @@ namespace sturvey_app.Data
                     }
                 }// end case
                 string location = dir + file_name + ".json";
-                var serialized = JsonConvert.SerializeObject(dup);
                 if (File.Exists(location))
                 {
                     File.Delete(location);
                 }
-                string content = serialized + "\n" + m_valT_.ToString() + "\n" + file_name;
-                File.WriteAllText(location, content);
+                var serialized = JsonConvert.SerializeObject(dup);
+                if (serialized != "null")
+                {
+                    string content = serialized + "\n" + m_valT_.ToString() + "\n" + file_name + "\n";
+                    content += Hash.ComputeSha256Hash(content);
+                    File.WriteAllText(location, content);
+                }
             }
         }
         //----------------------------------------------//
 
         private const string m_dir_ = "../../Data/Saved Tables/";
-        private readonly Dictionary<string, Table> m_tables_ = new Dictionary<string, Table>();
+        private readonly Dictionary<string, Table> m_tables_;
 
         private DataBase()
         {
+            m_tables_ = new Dictionary<string, Table>();
             load_from_disk();
         }
 
@@ -171,12 +185,15 @@ namespace sturvey_app.Data
             foreach (var file in Directory.EnumerateFiles(m_dir_, "*.json"))
             {
                 string serialized_data = File.ReadAllText(file);
-                string[] parts = serialized_data.Split('\n'); // [0] == serialized table data, [1] == type of table, [2] == table name
-                Table table = new Table(Type.GetType(parts[1]).FullName);
-                table.load_from_disk(parts[0]);
-                if (!m_tables_.ContainsKey(parts[2]))
+                string[] parts = serialized_data.Split('\n'); // [0] == serialized table data, [1] == type of table, [2] == table name, [3] == hash
+                if (Hash.ComputeSha256Hash(parts[0] + '\n' + parts[1] + '\n' + parts[2] + '\n') == parts[3])
                 {
-                    m_tables_[parts[2]] = table;
+                    Table table = new Table(Type.GetType(parts[1]).FullName);
+                    table.load_from_disk(parts[0]);
+                    if (!m_tables_.ContainsKey(parts[2]))
+                    {
+                        m_tables_[parts[2]] = table;
+                    }
                 }
             }
         }

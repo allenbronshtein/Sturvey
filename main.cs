@@ -1,7 +1,5 @@
-using sturvey_app.Data;
+using sturvey_app.Security;
 using sturvey_app.Tests;
-using System;
-using ID = System.Int32;
 
 namespace main
 {
@@ -9,7 +7,7 @@ namespace main
     {
         static void Main(string[] args)
         {
-            Tests.test_load_from_disk();
+            Tests.test_save_to_disk();
         }
     }
 }
