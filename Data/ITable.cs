@@ -1,12 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+using System.Collections;
+using ID = System.Int32;
 namespace sturvey_app.Data
 {
-    interface ITable
+    public interface ITable
     {
+        void add(IUnique val);
+        IUnique read(ID key); 
+        void update(IUnique val);
+        void delete(ID key);
+        void load_from_disk(string serialized_data);
+        void save_to_disk(string dir, string file_name);
     }
 }

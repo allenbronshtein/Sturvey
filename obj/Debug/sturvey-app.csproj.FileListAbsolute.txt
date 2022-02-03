@@ -5,3 +5,6 @@ C:\Users\abronshtein\Desktop\my test files\Sturvey\obj\Debug\sturvey-app.csprojA
 C:\Users\abronshtein\Desktop\my test files\Sturvey\obj\Debug\sturvey-app.csproj.CoreCompileInputs.cache
 C:\Users\abronshtein\Desktop\my test files\Sturvey\obj\Debug\sturvey-app.exe
 C:\Users\abronshtein\Desktop\my test files\Sturvey\obj\Debug\sturvey-app.pdb
+C:\Users\abronshtein\Desktop\my test files\Sturvey\bin\Debug\Newtonsoft.Json.dll
+C:\Users\abronshtein\Desktop\my test files\Sturvey\bin\Debug\Newtonsoft.Json.xml
+C:\Users\abronshtein\Desktop\my test files\Sturvey\obj\Debug\sturvey-app.csproj.CopyComplete
