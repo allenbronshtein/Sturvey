@@ -3,13 +3,19 @@ using sturvey_app.Users;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using ID = System.Int32;
 
 namespace sturvey_app.Data
 {
-    //Singleton class
+    public interface IUnique
+    {
+        ID id(); // Return instance ID 
+        IUnique clone(); // Returns copy of instance   
+        IUnique loader(DataBlock dataBlock);
+    }
+    public interface DataBlock { } //Deserializable
+
     public class DataBase 
     {
         private static DataBase m_instance_ = new DataBase();
@@ -60,16 +66,25 @@ namespace sturvey_app.Data
 
             public void load_from_disk(string serialized_data)
             {
+                void load<UT,UdataT>(Type UniqueT, Type Unique_dataT)
+                {
+                    Dictionary<ID, UdataT> dup = JsonConvert.DeserializeObject<Dictionary<ID, UdataT>>(serialized_data);
+                    foreach (ID key in dup.Keys)
+                    {
+                        m_data_[key] = (IUnique)UniqueT.GetMethod("loader").Invoke((UT)Activator.CreateInstance(UniqueT), new object[] { dup[key] });
+                    }
+                }
+                void _switch()
+                {
+                    if (m_valT_ == typeof(User).FullName)
+                    {
+                        load<User, User_Data>(typeof(User), typeof(User_Data));
+                    }
+                }
+
                 if (m_data_.Count == 0)
                 {
-                    if (m_valT_ == typeof(User).FullName) // case
-                    {
-                        Dictionary<ID, User_Data> dup = JsonConvert.DeserializeObject<Dictionary<ID, User_Data>>(serialized_data);
-                        foreach (ID key in dup.Keys)
-                        {
-                            m_data_[key] = new User(dup[key]);
-                        }
-                    }// end case
+                    _switch();
                 }
             }
             public void save_to_disk(string dir, string file_name)
@@ -186,5 +201,5 @@ namespace sturvey_app.Data
         {
             save_to_disk();
         }
-    }
+    } // Singleton
 }
