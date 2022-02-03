@@ -16,9 +16,10 @@ namespace sturvey_app.Tests
             db.delete_from_table("Users", 15245);
 
             db.create_table("Surveys", typeof(Survey));
-            db.add_to_table("Surveys", new User(1234));
-            db.add_to_table("Surveys", new User(4567));
-            db.add_to_table("Surveys", new User(15245));
+            db.add_to_table("Surveys", new Survey(1234));
+            db.add_to_table("Surveys", new Survey(4567));
+            db.add_to_table("Surveys", new Survey(15245));
+            db.delete_from_table("Surveys",15246);
         }
 
         public static void test_load_from_disk()

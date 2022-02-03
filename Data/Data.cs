@@ -6,8 +6,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using ID = System.Int32;
-using System.Security.Cryptography;
-using System.Text;
 using sturvey_app.Security;
 
 namespace sturvey_app.Data
@@ -18,7 +16,7 @@ namespace sturvey_app.Data
         IUnique clone(); // Returns copy of instance   
         IUnique loader(DataBlock dataBlock);
     }
-    public interface DataBlock { } //Deserializable
+    public interface DataBlock { } //Serialable-Deserializable objects.
 
     public class DataBase 
     {
@@ -99,14 +97,28 @@ namespace sturvey_app.Data
             public void save_to_disk(string dir, string file_name)
             {
                 IDictionary dup = default(IDictionary);
-                if (m_valT_ == typeof(User).FullName) // case
+
+                void _switch()
                 {
-                    dup = new Dictionary<ID, User_Data>();
-                    foreach (var key in m_data_.Keys)
+                    if (m_valT_ == typeof(User).FullName) // case
                     {
-                        dup[key] = new User_Data((User)m_data_[key]);
-                    }
-                }// end case
+                        dup = new Dictionary<ID, User_Data>();
+                        foreach (var key in m_data_.Keys)
+                        {
+                            dup[key] = new User_Data((User)m_data_[key]);
+                        }
+                    }// end case
+                    if (m_valT_ == typeof(Survey).FullName) // case
+                    {
+                        dup = new Dictionary<ID, Survey_Data>();
+                        foreach (var key in m_data_.Keys)
+                        {
+                            dup[key] = new Survey_Data((Survey)m_data_[key]);
+                        }
+                    }// end case
+                } // change to save<> if possible
+
+                _switch();
                 string location = dir + file_name + ".json";
                 if (File.Exists(location))
                 {
