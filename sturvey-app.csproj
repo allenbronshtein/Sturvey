@@ -46,7 +46,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Data\DataBase.cs" />
-    <Compile Include="Data\ITable.cs" />
     <Compile Include="Data\IUnique.cs" />
     <Compile Include="main.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -8,7 +8,7 @@ namespace main
     {
         static void Main(string[] args)
         {
-            Tests.test_save_to_disk();
+            Tests.test_load_from_disk();
         }
     }
 }

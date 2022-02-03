@@ -9,6 +9,7 @@ namespace sturvey_app.Data
 {
     public interface IUnique
     {
-        ID Id(); // returns item ID
+        ID id(); // Return instance ID 
+        IUnique clone(); // Returns copy of instance
     }
 }

@@ -5,26 +5,30 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Xml.Serialization;
 using ID = System.Int32;
 
 namespace sturvey_app.Data
 {
-    public class DataBase
+    //Singleton class
+    public class DataBase 
     {
-        private class Table : ITable
+        private static DataBase m_instance_ = new DataBase();
+        public static DataBase get_instance() { return m_instance_; }
+
+        //---------------Inner Class Table--------------//
+        private class Table
         {
             private IDictionary m_data_ = new Dictionary<ID, IUnique>();
-            private Type m_valT_;
-            public Table(Type value_type)
+            private string m_valT_;
+            public Table(string value_type)
             {
                 m_valT_ = value_type;
             }
 
             public void add(IUnique value)
             {
-                ID key = value.Id();
-                if (!m_data_.Contains(key) && value.GetType() == m_valT_)
+                ID key = value.id();
+                if (!m_data_.Contains(key) && value.GetType().FullName == m_valT_)
                 {
                     m_data_[key] = value;
                 }
@@ -40,8 +44,8 @@ namespace sturvey_app.Data
             }
             public void update(IUnique value)
             {
-                ID key = value.Id();
-                if (m_data_.Contains(key) && value.GetType() == m_valT_)
+                ID key = value.id();
+                if (m_data_.Contains(key) && value.GetType().FullName == m_valT_)
                 {
                     m_data_[key] = value;
                 }
@@ -58,12 +62,12 @@ namespace sturvey_app.Data
             {
                 if (m_data_.Count == 0)
                 {
-                    if (m_valT_ == typeof(User)) // case
+                    if (m_valT_ == typeof(User).FullName) // case
                     {
-                        IDictionary dup = JsonConvert.DeserializeObject<Dictionary<ID, User_Data>>(serialized_data);
-                        foreach (KeyValuePair<ID, User_Data> pair in dup)
+                        Dictionary<ID, User_Data> dup = JsonConvert.DeserializeObject<Dictionary<ID, User_Data>>(serialized_data);
+                        foreach (ID key in dup.Keys)
                         {
-                            m_data_[pair.Key] = new User(pair.Value);
+                            m_data_[key] = new User(dup[key]);
                         }
                     }// end case
                 }
@@ -71,7 +75,7 @@ namespace sturvey_app.Data
             public void save_to_disk(string dir, string file_name)
             {
                 IDictionary dup = default(IDictionary);
-                if (m_valT_ == typeof(User)) // case
+                if (m_valT_ == typeof(User).FullName) // case
                 {
                     dup = new Dictionary<ID, User_Data>();
                     foreach (var key in m_data_.Keys)
@@ -89,29 +93,22 @@ namespace sturvey_app.Data
                 File.WriteAllText(location, content);
             }
         }
+        //----------------------------------------------//
 
         private const string m_dir_ = "../../Data/Saved Tables/";
-        private static DataBase m_instance_ = new DataBase();
-        private Dictionary<string,ITable> m_tables_ = new Dictionary<string, ITable>();
-        private DataBase() {}
-        public static DataBase get_instance(){return m_instance_;}
-        
+        private readonly Dictionary<string, Table> m_tables_ = new Dictionary<string, Table>();
 
-        //-------------User API--------------//
+        private DataBase()
+        {
+            load_from_disk();
+        }
+
+        //---------------API--------------//
         public void create_table(string table_name, Type table_type) {
             if (!m_tables_.ContainsKey(table_name))
             {
-                m_tables_[table_name] = new Table(table_type);
+                m_tables_[table_name] = new Table(table_type.FullName);
             }
-        }
-        public ITable get_table(string table_name)
-        {
-            ITable table = null;
-            if (m_tables_.ContainsKey(table_name))
-            {
-                table = m_tables_[table_name];
-            }
-            return table;
         }
         public void delete_table(string table_name) {
             if (m_tables_.ContainsKey(table_name))
@@ -119,16 +116,48 @@ namespace sturvey_app.Data
                 m_tables_.Remove(table_name);
             }
         }
-        //-----------------------------------//
+        public void add_to_table(string table_name, IUnique value)
+        {
+            Table table = get_table(table_name);
+            if(table != default(Table))
+            {
+                table.add(value);
+            }
+        }
+        public IUnique read_from_table(string table_name, ID key)
+        {
+            IUnique value = default(IUnique);
+            Table table = get_table(table_name);
+            if (table != default(Table))
+            {
+                value = table.read(key).clone();                
+            }
+            return value;
+        }
+        public void update_table_value(string table_name, IUnique value)
+        {
+            Table table = get_table(table_name);
+            if (table != default(Table))
+            {
+                table.update(value);
+            }
+        }
+        public void delete_from_table(string table_name, ID key)
+        {
+            Table table = get_table(table_name);
+            if (table != default(Table))
+            {
+                table.delete(key);
+            }
+        }
+        //--------------------------------//
 
-
-        //-------------Backend--------------//
-        public void load_from_disk() {
+        private void load_from_disk() {
             foreach (var file in Directory.EnumerateFiles(m_dir_, "*.json"))
             {
                 string serialized_data = File.ReadAllText(file);
                 string[] parts = serialized_data.Split('\n'); // [0] == serialized table data, [1] == type of table, [2] == table name
-                ITable table = new Table(Type.GetType(parts[1]));
+                Table table = new Table(Type.GetType(parts[1]).FullName);
                 table.load_from_disk(parts[0]);
                 if (!m_tables_.ContainsKey(parts[2]))
                 {
@@ -136,14 +165,26 @@ namespace sturvey_app.Data
                 }
             }
         }
-        public void save_to_disk() {
-            foreach(KeyValuePair<string,ITable> entry in m_tables_)
+        private void save_to_disk() {
+            foreach(KeyValuePair<string,Table> entry in m_tables_)
             {
-                ITable table = entry.Value;
+                Table table = entry.Value;
                 table.save_to_disk(m_dir_, entry.Key);                
             }
         }
-        //----------------------------------//
+        private Table get_table(string table_name)
+        {
+            Table table = null;
+            if (m_tables_.ContainsKey(table_name))
+            {
+                table = m_tables_[table_name];
+            }
+            return table;
+        }
 
+        ~DataBase()
+        {
+            save_to_disk();
+        }
     }
 }
