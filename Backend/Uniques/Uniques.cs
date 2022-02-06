@@ -1,13 +1,7 @@
 ﻿using Newtonsoft.Json;
-using sturvey_app.Comands;
-using sturvey_app.Components;
 using sturvey_app.Data;
 using sturvey_app.Security;
-using sturvey_app.Users;
-using System;
 using System.Collections.Generic;
-using System.Net.Sockets;
-using System.Text;
 using ID = System.Int32;
 
 namespace sturvey_app.Users
@@ -20,6 +14,11 @@ namespace sturvey_app.Users
         private List<int> m_surveys_to_me_ = new List<int>();
 
         public User() { } // Empty Constructor for loader
+        public User(ID id, string password)
+        {
+            m_id_ = id;
+            m_password_ = Hash.ComputeSha256Hash(password);
+        } // Constructor
         public IUnique loader(DataBlock data)
         {
             User_Data user = (User_Data)data;
@@ -29,11 +28,6 @@ namespace sturvey_app.Users
             m_surveys_to_me_ = user.surveys_to_me;
             return this;
         }//loading
-        public User(ID id,string password)
-        {
-            m_id_ = id;
-            m_password_ = Hash.ComputeSha256Hash(password);
-        } // Constructor
 
         //----------IUnique Interface-------------//
         public ID id()
@@ -86,6 +80,11 @@ namespace sturvey_app.Surveys
         private List<KeyValuePair<string,List<string>>> m_survey_ = new List<KeyValuePair<string, List<string>>>();
         private List<KeyValuePair<string, List<int>>> m_votes_ = new List<KeyValuePair<string, List<int>>>();
         public Survey() { } // Empty Constructor for loader
+        public Survey(ID id)
+        {
+            m_id_ = id;
+        } // Constructor
+
         public IUnique loader(DataBlock data)
         {
             Survey_Data survey = (Survey_Data)data;
@@ -93,11 +92,7 @@ namespace sturvey_app.Surveys
             m_survey_ = survey.survey;
             m_votes_ = survey.votes;
             return this;
-        }
-        public Survey(ID id)
-        {
-            m_id_ = id;
-        } // Constructor
+        }// loading
 
         //----------IUnique Interface-------------//
         public ID id()

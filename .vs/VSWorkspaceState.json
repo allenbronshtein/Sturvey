@@ -1,9 +1,7 @@
 {
   "ExpandedNodes": [
-    "",
-    "\\Backend",
-    "\\Backend\\Components"
+    ""
   ],
-  "SelectedNode": "\\sturvey-app.sln",
+  "SelectedNode": "\\client.py",
   "PreviewInSolutionExplorer": false
 }

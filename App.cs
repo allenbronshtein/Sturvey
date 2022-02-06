@@ -11,6 +11,8 @@ namespace main
     public class main
     {
         private static void start_app() {
+            IPAddress IP = IPAddress.Parse("127.0.0.1");
+            int PORT = 6000;
             EventManager event_manager = EventManager.get_instance();
             DataBase dataBase = DataBase.get_instance();
             SurveyManager survey_manager = SurveyManager.get_instance();
@@ -18,21 +20,22 @@ namespace main
             UserManager user_manager = UserManager.get_instance();
             hostAPI host_API = hostAPI.get_instance();
             Logger logger = Logger.get_instance();
-            TcpListener server = new TcpListener(IPAddress.Parse("127.0.0.1"), 6000);
+            TcpListener server = new TcpListener(IP, PORT);
+            event_manager.raise(new Event().setMessage("Server on"));
+
             server.Start();
-            EventManager.get_instance().raise(new Event(event_title.SERVER_ON_EVENT, status.SUCCESS, "Server on"));
 
             while (true)
             {
                 TcpClient client = server.AcceptTcpClient();
-                Console.WriteLine("New connection from: {0}", client.Client.RemoteEndPoint.ToString());
+                event_manager.raise(new Event().setMessage("New connection from " + client.Client.RemoteEndPoint.ToString()));
                 session_manager.create_session(client);
             }
         }
+
         static void Main(string[] args)
         {
-            start_app();
-
+            start_app(); 
         }
     }
 }

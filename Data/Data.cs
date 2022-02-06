@@ -13,57 +13,28 @@ using sturvey_app.Components;
 
 namespace sturvey_app.Data
 {
+    //----------Interfaces for storable objects--------------//
     public interface IUnique
     {
         ID id(); // Return instance ID 
         IUnique loader(DataBlock dataBlock);
-    }
-    public interface DataBlock { } //Serialable-Deserializable objects.
+    } //Unserializable-Unserializable objects. (Private members)
+    public interface DataBlock { } // Serialable-Deserializable objects. (Public members)
+    //-------------------------------------------------------//
 
     public class DataBase 
     {
         private static DataBase m_instance_ = new DataBase();
         public static DataBase get_instance() { return m_instance_; }
-        private EventHandler m_event_handler_;
-        private class EventHandler : IEventHandler
+        private DataBase()
         {
-            private static EventHandler m_instance_ = new EventHandler();
-            public static EventHandler get_instance() { return m_instance_; }
-
-            private EventHandler()
-            {
-                sign();
-                Thread handler = new Thread(handler_task);
-                handler.Start();
-            }
-            private Queue<Event> m_event_queue_ = new Queue<Event>();
-
-            public void handler_task()
-            {
-                Thread.Sleep(500);
-                while (m_event_queue_.Count != 0)
-                {
-                    handle();
-                }
-            }
-            public void handle()
-            {
-                Event evt = m_event_queue_.Dequeue();
-            }
-            public void queue(Event evt)
-            {
-                m_event_queue_.Enqueue(evt);
-            }
-            public void raise(Event evt)
-            {
-                EventManager.get_instance().raise(evt);
-            }
-            public void sign()
-            {
-                EventManager.get_instance().sign(this);
-            }
+            m_tables_ = new Dictionary<string, Table>();
+            m_createM_ = new Mutex();
+            m_deleteM_ = new Mutex();
+            m_event_handler_ = EventHandler.get_instance();
+            load_from_disk();
         }
-        //---------------Inner Class Table--------------//
+
         private class Table
         {
             private IDictionary m_data_ = new Dictionary<ID, IUnique>();
@@ -175,7 +146,7 @@ namespace sturvey_app.Data
                             dup[key] = new Survey_Data((Survey)m_data_[key]);
                         }
                     }// end case
-                } // change to save<> if possible
+                }
 
                 _switch();
                 string location = dir + file_name + ".json";
@@ -192,19 +163,13 @@ namespace sturvey_app.Data
                 }
             }
         }
-        //----------------------------------------------//
 
+        //-----------------Fields-------------------------//
         private const string DIR = "../../Data/Saved Tables/";
         private readonly Dictionary<string, Table> m_tables_;
         Mutex m_createM_, m_deleteM_;
-        private DataBase()
-        {
-            m_tables_ = new Dictionary<string, Table>();
-            m_createM_ = new Mutex();
-            m_deleteM_ = new Mutex();
-            m_event_handler_ = EventHandler.get_instance();
-            load_from_disk();
-        }
+        private EventHandler m_event_handler_;
+        //-----------------------------------------------//
 
         //---------------API--------------//
         public status create_table(string table_name, Type table_type) {
@@ -303,6 +268,46 @@ namespace sturvey_app.Data
         ~DataBase()
         {
             save_to_disk();
+        }
+
+
+        private class EventHandler : IEventHandler
+        {
+            private static EventHandler m_instance_ = new EventHandler();
+            public static EventHandler get_instance() { return m_instance_; }
+
+            private EventHandler()
+            {
+                sign();
+                Thread handler = new Thread(handler_task);
+                handler.Start();
+            }
+            private Queue<Event> m_event_queue_ = new Queue<Event>();
+
+            public void handler_task()
+            {
+                Thread.Sleep(500);
+                while (m_event_queue_.Count != 0)
+                {
+                    handle();
+                }
+            }
+            public void handle()
+            {
+                Event evt = m_event_queue_.Dequeue();
+            }
+            public void queue(Event evt)
+            {
+                m_event_queue_.Enqueue(evt);
+            }
+            public void raise(Event evt)
+            {
+                EventManager.get_instance().raise(evt);
+            }
+            public void sign()
+            {
+                EventManager.get_instance().sign(this);
+            }
         }
     }
 }
