@@ -122,6 +122,7 @@ namespace sturvey_app.Comands
             get { return m_request_; }
         }
     }
+
     public class Event
     {
         private event_title m_title_ = default(event_title);
@@ -150,6 +151,10 @@ namespace sturvey_app.Comands
         {
             get { return m_reporter_; }
         }
+        public ID SID
+        {
+            get { return m_sid_; }
+        }
 
         public Event setTitle(event_title title)
         {
@@ -174,6 +179,11 @@ namespace sturvey_app.Comands
         public Event setReporter(IEventHandler reporter)
         {
             m_reporter_ = reporter.GetType().ToString();
+            return this;
+        }
+        public Event setSID(ID id)
+        {
+            m_sid_ = id;
             return this;
         }
     }
