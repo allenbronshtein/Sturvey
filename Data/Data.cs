@@ -7,6 +7,9 @@ using System.Collections.Generic;
 using System.IO;
 using ID = System.Int32;
 using sturvey_app.Security;
+using System.Threading;
+using sturvey_app.Comands;
+using sturvey_app.Components;
 
 namespace sturvey_app.Data
 {
@@ -21,24 +24,71 @@ namespace sturvey_app.Data
     {
         private static DataBase m_instance_ = new DataBase();
         public static DataBase get_instance() { return m_instance_; }
+        private EventHandler m_event_handler_;
+        private class EventHandler : IEventHandler
+        {
+            private static EventHandler m_instance_ = new EventHandler();
+            public static EventHandler get_instance() { return m_instance_; }
 
+            private EventHandler()
+            {
+                sign();
+                Thread handler = new Thread(handler_task);
+                handler.Start();
+            }
+            private Queue<Event> m_event_queue_ = new Queue<Event>();
+
+            public void handler_task()
+            {
+                Thread.Sleep(500);
+                while (m_event_queue_.Count != 0)
+                {
+                    handle();
+                }
+            }
+            public void handle()
+            {
+                Event evt = m_event_queue_.Dequeue();
+            }
+            public void queue(Event evt)
+            {
+                m_event_queue_.Enqueue(evt);
+            }
+            public void raise(Event evt)
+            {
+                EventManager.get_instance().raise(evt);
+            }
+            public void sign()
+            {
+                EventManager.get_instance().sign(this);
+            }
+        }
         //---------------Inner Class Table--------------//
         private class Table
         {
             private IDictionary m_data_ = new Dictionary<ID, IUnique>();
             private string m_valT_;
+            private Mutex m_addM_, m_updateM_, m_deleteM_;
             public Table(string value_type)
             {
                 m_valT_ = value_type;
+                m_addM_ = new Mutex();
+                m_updateM_ = new Mutex();
+                m_deleteM_ = new Mutex();
             }
 
-            public void add(IUnique value)
+            public status add(IUnique value)
             {
+                m_addM_.WaitOne();
+                status status = status.FAIL;
                 ID key = value.id();
                 if (!m_data_.Contains(key) && value.GetType().FullName == m_valT_)
                 {
                     m_data_[key] = value;
+                    status = status.SUCCESS;
                 }
+                m_addM_.ReleaseMutex();
+                return status;            
             }
             public IUnique read(ID key)
             {
@@ -49,21 +99,31 @@ namespace sturvey_app.Data
                 }
                 return value;
             }
-            public void update(IUnique value)
+            public status update(IUnique value)
             {
+                m_updateM_.WaitOne();
+                status status = status.FAIL;
                 ID key = value.id();
                 if (m_data_.Contains(key) && value.GetType().FullName == m_valT_)
                 {
                     m_data_.Remove(key);
                     m_data_[key] = value;
+                    status = status.SUCCESS;
                 }
+                m_updateM_.ReleaseMutex();
+                return status;
             }
-            public void delete(ID key)
+            public status delete(ID key)
             {
+                m_deleteM_.WaitOne();
+                status status = status.FAIL;
                 if (m_data_.Contains(key))
                 {
                     m_data_.Remove(key);
+                    status = status.SUCCESS;
                 }
+                m_deleteM_.ReleaseMutex();
+                return status;
             }
 
             public void load_from_disk(string serialized_data)
@@ -134,35 +194,46 @@ namespace sturvey_app.Data
         }
         //----------------------------------------------//
 
-        private const string m_dir_ = "../../Data/Saved Tables/";
+        private const string DIR = "../../Data/Saved Tables/";
         private readonly Dictionary<string, Table> m_tables_;
-
+        Mutex m_createM_, m_deleteM_;
         private DataBase()
         {
             m_tables_ = new Dictionary<string, Table>();
+            m_createM_ = new Mutex();
+            m_deleteM_ = new Mutex();
+            m_event_handler_ = EventHandler.get_instance();
             load_from_disk();
         }
 
         //---------------API--------------//
-        public void create_table(string table_name, Type table_type) {
+        public status create_table(string table_name, Type table_type) {
+            m_createM_.WaitOne();
             if (!m_tables_.ContainsKey(table_name))
             {
                 m_tables_[table_name] = new Table(table_type.FullName);
             }
+            m_createM_.ReleaseMutex();
+            return status.SUCCESS;
         }
-        public void delete_table(string table_name) {
+        public status delete_table(string table_name) {
+            m_deleteM_.WaitOne();
             if (m_tables_.ContainsKey(table_name))
             {
                 m_tables_.Remove(table_name);
             }
+            m_deleteM_.ReleaseMutex();
+            return status.SUCCESS;
         }
-        public void add_to_table(string table_name, IUnique value)
+        public status add_to_table(string table_name, IUnique value)
         {
+            status status = status.FAIL;
             Table table = get_table(table_name);
             if(table != default(Table))
             {
-                table.add(value);
+                status = table.add(value);
             }
+            return status;
         }
         public IUnique read_from_table(string table_name, ID key)
         {
@@ -174,26 +245,30 @@ namespace sturvey_app.Data
             }
             return value;
         }
-        public void update_table_value(string table_name, IUnique value)
+        public status update_table_value(string table_name, IUnique value)
         {
+            status status = status.SUCCESS;
             Table table = get_table(table_name);
             if (table != default(Table))
             {
-                table.update(value);
+                status = table.update(value);
             }
+            return status;
         }
-        public void delete_from_table(string table_name, ID key)
+        public status delete_from_table(string table_name, ID key)
         {
+            status status = status.SUCCESS;
             Table table = get_table(table_name);
             if (table != default(Table))
             {
-                table.delete(key);
+                status = table.delete(key);
             }
+            return status;
         }
         //--------------------------------//
 
         private void load_from_disk() {
-            foreach (var file in Directory.EnumerateFiles(m_dir_, "*.json"))
+            foreach (var file in Directory.EnumerateFiles(DIR, "*.json"))
             {
                 string serialized_data = File.ReadAllText(file);
                 string[] parts = serialized_data.Split('\n'); // [0] == serialized table data, [1] == type of table, [2] == table name, [3] == hash
@@ -212,7 +287,7 @@ namespace sturvey_app.Data
             foreach(KeyValuePair<string,Table> entry in m_tables_)
             {
                 Table table = entry.Value;
-                table.save_to_disk(m_dir_, entry.Key);                
+                table.save_to_disk(DIR, entry.Key);                
             }
         }
         private Table get_table(string table_name)
@@ -229,5 +304,5 @@ namespace sturvey_app.Data
         {
             save_to_disk();
         }
-    } // Singleton
+    }
 }

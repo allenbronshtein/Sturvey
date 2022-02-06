@@ -5,5 +5,9 @@ PORT = 6000        # The port used by the server
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
-    cmd = input(">>> ")
-    s.sendall(bytearray(cmd)
+    while 1:
+        cmd = input(">>> ")
+        cmd = cmd.lower()
+        if cmd == "break":
+            break
+        s.sendall(bytes(cmd, encoding='utf8'))

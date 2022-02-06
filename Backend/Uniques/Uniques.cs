@@ -1,7 +1,13 @@
 ﻿using Newtonsoft.Json;
+using sturvey_app.Comands;
+using sturvey_app.Components;
 using sturvey_app.Data;
 using sturvey_app.Security;
+using sturvey_app.Users;
+using System;
 using System.Collections.Generic;
+using System.Net.Sockets;
+using System.Text;
 using ID = System.Int32;
 
 namespace sturvey_app.Users
@@ -35,14 +41,6 @@ namespace sturvey_app.Users
             return m_id_;
         }
         //----------------------------------------//
-
-        //------------User API--------------//
-        public void create_survey() { }
-        public void vote_survey() { }
-        public void view_survey() { }
-        public void delete_survey() { }
-        public void clear_survey() { }
-        //----------------------------------//
         public List<int> Surveys_by_me
         {
             get{

@@ -1,6 +1,8 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\Backend",
+    "\\Backend\\Components"
   ],
   "SelectedNode": "\\sturvey-app.sln",
   "PreviewInSolutionExplorer": false
