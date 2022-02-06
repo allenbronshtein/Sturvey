@@ -1,16 +1,18 @@
 ﻿using sturvey_app.Comands;
+using sturvey_app.Data;
+using sturvey_app.Security;
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using ID = System.Int32;
-using Requester = System.Tuple<int, int>;
+using Requester = System.Tuple<int, int>; // <UID,SID>
 namespace sturvey_app.Components
 {
     public interface IExecuter
     {
-        status execute(Command command, Requester tuple);
+        Event execute(Command command, Requester tuple);
     } //Implemented by classes that can execute commands 
     public interface IEventHandler {
         void sign();
@@ -30,14 +32,30 @@ namespace sturvey_app.Components
         private EventHandler m_event_handler_;
 
         //------------------API---------------------//
-        public status sign_up(string[] args) { return status.SUCCESS; }
-        public status login(string[] args) { return status.SUCCESS; }
-        public status logout(string[] args) { return status.SUCCESS; }
-        public status delete_user(string[] args) { return status.SUCCESS; }
-
-        public status execute(Command command, Requester requester)
+        public Event sign_up(string[] args, Requester requester)
         {
-            return command.Request(command.Args);
+            Event evt = new Event();
+            return evt;
+        }
+        public Event login(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            return evt;
+        }
+        public Event logout(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            return evt;
+        }
+        public Event delete_user(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            return evt;
+        }
+
+        public Event execute(Command command, Requester requester)
+        {
+            return command.Request(command.Args,requester);
         }
         //------------------------------------------//
 
@@ -96,15 +114,35 @@ namespace sturvey_app.Components
         private EventHandler m_event_handler_;
 
         //------------------API---------------------//
-        public status create_survey(string[] args) { return status.SUCCESS; }
-        public status vote_survey(string[] args) { return status.SUCCESS; }
-        public status view_survey(string[] args) { return status.SUCCESS; }
-        public status delete_survey(string[] args) { return status.SUCCESS; }
-        public status clear_survey(string[] args) { return status.SUCCESS; }
-
-        public status execute(Command command,Requester requester)
+        public Event create_survey(string[] args, Requester requester)
         {
-            return command.Request(command.Args);
+            Event evt = new Event();
+            return evt;
+        }
+        public Event vote_survey(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            return evt;
+        }
+        public Event view_survey(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            return evt;
+        }
+        public Event delete_survey(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            return evt;
+        }
+        public Event clear_survey(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            return evt;
+        }
+
+        public Event execute(Command command,Requester requester)
+        {
+            return command.Request(command.Args,requester);
         }
         //------------------------------------------//
 
@@ -180,16 +218,16 @@ namespace sturvey_app.Components
         {
             private NetworkStream m_stream_;
             private TcpClient m_client_;
-            private ID m_user_;
+            private ID m_user_id_;
             private ID m_session_id_;
             private Byte[] m_in_;
-            public Session(TcpClient client, int session_id)
+            public Session(TcpClient client, ID session_id)
             {
                 m_session_id_ = session_id;
                 m_client_ = client;
                 m_stream_ = client.GetStream();
                 m_in_ = new byte[1024];
-                m_user_ = default(ID);
+                m_user_id_ = default(ID);
             }
 
             public void run_task()
@@ -200,15 +238,21 @@ namespace sturvey_app.Components
                     Command command = hostAPI.get_instance().parse(Encoding.ASCII.GetString(m_in_, 0, i));
                     if (command != default(Command))
                     {
-                        command.Executer.execute(command, new Requester(m_user_, m_session_id_));
+                        Event evt = command.Executer.execute(command, new Requester(m_user_id_, m_session_id_));
+                        EventManager.get_instance().raise(evt);
                     }
                 }
                 m_session_id_ = -1;
             }
 
-            public int id()
+            public ID id()
             {
                 return m_session_id_;
+            }
+            public ID UserID
+            {
+                get { return m_user_id_; }
+                set { m_user_id_ = value; }
             }
         }
         private static SessionManager m_instance_ = new SessionManager();
@@ -330,6 +374,16 @@ namespace sturvey_app.Components
             private void handle()
             {
                 Event evt = m_event_queue_.Dequeue();
+                int title = (int)evt.Title;
+                switch (title)
+                {
+                    case (int)event_title.ADMIN_LOGIN_EVENT:
+                        if(evt.Status == status.SUCCESS)
+                        {
+                            m_sessions_[evt.SID].UserID = (ID) UID.ADMIN_UID;  
+                        }
+                        break;
+                }
             }
             public void queue(Event evt)
             {
@@ -554,15 +608,59 @@ namespace sturvey_app.Components
             m_event_handler_ = EventHandler.get_instance();
         }
 
-        private string m_key_hash_ = "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"; //Passcode: 123456
+        private string m_key_hash_ = "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92";
 
-        public status login(string[]args) { return status.SUCCESS; }
-        public status create_table(string[] args) { return status.SUCCESS; }
-        public status delete_table(string[] args) { return status.SUCCESS; }
+        public Event login(string[]args, Requester requester) {
+            Event evt = new Event();
+            evt.setTitle(event_title.ADMIN_LOGIN_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.Item2);
+            if (Hash.ComputeSha256Hash(args[1]) == m_key_hash_)
+            {
+                evt.setStatus(status.SUCCESS).setMessage("Admin logged in");
+            }
+            return evt;
+        }
+        public Event create_table(string[] args, Requester requester) {
+            Event evt = new Event();
+            status status = status.FAIL;
+            evt.setTitle(event_title.NEW_TABLE_EVENT).setDatetime(DateTime.Now).setSID(requester.Item2);
+            if (requester.Item1 != (ID) UID.ADMIN_UID)
+            {
+                evt.setStatus(status);
+            }
+            else
+            {
+                status = DataBase.get_instance().create_table(args[1], "sturvey_app.Users." + args[2]);
+                evt.setStatus(status);
+                if (status == status.SUCCESS)
+                {
+                    evt.setMessage("Created Table");
+                }
+            }
+            return evt;
+        }
+        public Event delete_table(string[] args,Requester requester) {
+            Event evt = new Event();
+            status status = status.FAIL;
+            evt.setTitle(event_title.DELETE_TABLE_EVENT).setDatetime(DateTime.Now).setSID(requester.Item2);
+            if (requester.Item1 != (ID) UID.ADMIN_UID)
+            {
+                evt.setStatus(status);
+            }
+            else
+            {
+                status = DataBase.get_instance().delete_table(args[1]);
+                evt.setStatus(status);
+                if (status == status.SUCCESS)
+                {
+                    evt.setMessage("Deleted Table");
+                }
+            }
+            return evt;
+        }
 
-        public status execute(Command command, Requester tuple)
+        public Event execute(Command command, Requester requester)
         {
-            return command.Request(command.Args);
+            return command.Request(command.Args, requester);
         }
 
         private class EventHandler : IEventHandler

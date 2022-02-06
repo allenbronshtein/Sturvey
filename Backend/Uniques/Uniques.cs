@@ -79,12 +79,23 @@ namespace sturvey_app.Surveys
         private ID m_id_;
         private List<KeyValuePair<string,List<string>>> m_survey_ = new List<KeyValuePair<string, List<string>>>(); //pair[0] is question, pair[1] is list of answers
         private List<List<int>> m_votes_ = new List<List<int>>(); //index is question number, the value is list of votes for that question (index 0 number of votes for answer 0 ...)
-        public Survey() { } // Empty Constructor for loader
-        public Survey(ID id)
+        public Survey(ID id, List<KeyValuePair<string, List<string>>> survey)
         {
             m_id_ = id;
+            m_survey_ = survey;
+            foreach(KeyValuePair<string, List<string>> pair in survey)
+            {
+                int num_of_answers = pair.Value.Count;
+                List<int> votes = new List<int>();
+                for(int i=0; i < num_of_answers; i++)
+                {
+                    votes.Add(0);
+                }
+                m_votes_.Add(votes);
+            }
         } // Constructor
 
+        public Survey() { } // Empty Constructor for loader
         public IUnique loader(DataBlock data)
         {
             Survey_Data survey = (Survey_Data)data;

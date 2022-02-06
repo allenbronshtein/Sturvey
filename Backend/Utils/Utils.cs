@@ -1,12 +1,17 @@
 ﻿using sturvey_app.Components;
 using System;
-using Request = System.Func<string[], sturvey_app.Comands.status>;
+using Requester = System.Tuple<int, int>; // <UID,SID>
+using Request = System.Func<string[], System.Tuple<int, int>, sturvey_app.Comands.Event>; //First argument args array, second argument requester
 using ID = System.Int32;
 namespace sturvey_app.Comands
 {
+    public enum UID
+    {
+        ADMIN_UID = -1,
+        LAST,
+    }
     public enum SID {
         UNAVAILABLE_SID = -1,
-        ADMIN_SID = 0,
         USER_INIT_SID = 1,
         LAST,
     }
@@ -84,6 +89,12 @@ namespace sturvey_app.Comands
         SAVA_DATA_EVENT,
 
         LAST_DATABASE_EVENT,// <----BORDER
+        //Admin Suites Events
+        FIRST_ADMIN_EVENT,// <----BORDER
+
+        ADMIN_LOGIN_EVENT,
+
+        LAST_ADMIN_EVENT,// <----BORDER
 
         LAST,
     } 

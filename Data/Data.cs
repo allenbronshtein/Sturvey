@@ -181,6 +181,16 @@ namespace sturvey_app.Data
             m_createM_.ReleaseMutex();
             return status.SUCCESS;
         }
+        public status create_table(string table_name, string table_type)
+        {
+            m_createM_.WaitOne();
+            if (!m_tables_.ContainsKey(table_name))
+            {
+                m_tables_[table_name] = new Table(table_type);
+            }
+            m_createM_.ReleaseMutex();
+            return status.SUCCESS;
+        }
         public status delete_table(string table_name) {
             m_deleteM_.WaitOne();
             if (m_tables_.ContainsKey(table_name))
