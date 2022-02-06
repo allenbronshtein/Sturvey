@@ -1,8 +1,15 @@
 ﻿using sturvey_app.Components;
 using System;
 using Request = System.Func<string[], sturvey_app.Comands.status>;
+using ID = System.Int32;
 namespace sturvey_app.Comands
 {
+    public enum SID {
+        UNAVAILABLE_SID = -1,
+        ADMIN_SID = 0,
+        USER_INIT_SID = 1,
+        LAST,
+    }
     public enum status
     {
         SUCCESS,

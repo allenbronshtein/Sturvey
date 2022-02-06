@@ -20,6 +20,7 @@ namespace main
             UserManager user_manager = UserManager.get_instance();
             hostAPI host_API = hostAPI.get_instance();
             Logger logger = Logger.get_instance();
+            AdminSpace admin_space = AdminSpace.get_instance();
             TcpListener server = new TcpListener(IP, PORT);
             event_manager.raise(new Event().setMessage("Server on"));
 
@@ -35,6 +36,7 @@ namespace main
 
         static void Main(string[] args)
         {
+
             start_app(); 
         }
     }

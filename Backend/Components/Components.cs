@@ -1,5 +1,4 @@
 ﻿using sturvey_app.Comands;
-using sturvey_app.Users;
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
@@ -7,7 +6,6 @@ using System.Text;
 using System.Threading;
 using ID = System.Int32;
 using Requester = System.Tuple<int, int>;
-
 namespace sturvey_app.Components
 {
     public interface IExecuter
@@ -182,7 +180,7 @@ namespace sturvey_app.Components
         {
             private NetworkStream m_stream_;
             private TcpClient m_client_;
-            private User m_user_;
+            private ID m_user_;
             private ID m_session_id_;
             private Byte[] m_in_;
             public Session(TcpClient client, int session_id)
@@ -191,7 +189,7 @@ namespace sturvey_app.Components
                 m_client_ = client;
                 m_stream_ = client.GetStream();
                 m_in_ = new byte[1024];
-                m_user_ = default(User);
+                m_user_ = default(ID);
             }
 
             public void run_task()
@@ -202,7 +200,7 @@ namespace sturvey_app.Components
                     Command command = hostAPI.get_instance().parse(Encoding.ASCII.GetString(m_in_, 0, i));
                     if (command != default(Command))
                     {
-                        command.Executer.execute(command, new Requester(m_user_.id(), m_session_id_));
+                        command.Executer.execute(command, new Requester(m_user_, m_session_id_));
                     }
                 }
                 m_session_id_ = -1;
@@ -228,7 +226,7 @@ namespace sturvey_app.Components
         private Dictionary<ID, Session> sessions = new Dictionary<ID, Session>();
         private Mutex m_createM_, m_deleteM_;
         private Queue<ID> queue_idx = new Queue<ID>();
-        private int count_sidx = 0;
+        private ID count_sidx = (ID)SID.USER_INIT_SID;
         private Thread session_cleaner;
         private EventHandler m_event_handler_;
 
@@ -236,7 +234,7 @@ namespace sturvey_app.Components
         {
             m_createM_.WaitOne();
             ID session_id = gen_session_id();
-            if (session_id != -1)
+            if (session_id != (ID)SID.UNAVAILABLE_SID)
             {
                 Session session = new Session(client, session_id);
                 sessions[session_id] = session;
@@ -264,7 +262,7 @@ namespace sturvey_app.Components
                 {
                     ID session_id = pair.Key;
                     Session session = pair.Value;
-                    if(session.id() == -1 || session.id() != session_id)
+                    if(session.id() == (int)SID.UNAVAILABLE_SID || session.id() != session_id)
                     {
                         remove_list.Add(session_id);
                     }
@@ -278,7 +276,7 @@ namespace sturvey_app.Components
         }
         private ID gen_session_id()
         {
-            ID session_id = -1;
+            ID session_id = (ID)SID.UNAVAILABLE_SID;
             if (sessions.Count < MAX_SESSIONS)
             {
                 if (queue_idx.Count > 0)
@@ -286,7 +284,7 @@ namespace sturvey_app.Components
                     session_id = queue_idx.Dequeue();
                     if (sessions.ContainsKey(session_id))
                     {
-                        session_id = -1;
+                        session_id = (ID)SID.UNAVAILABLE_SID;
                     }
                 }
                 else
@@ -467,6 +465,27 @@ namespace sturvey_app.Components
                         command = new Command(args, SurveyManager.get_instance(), SurveyManager.get_instance().clear_survey);
                     }
                     break;
+                // admin $passcode
+                case "admin":
+                    if (args.Length == 2)
+                    {
+                        command = new Command(args, AdminSpace.get_instance(), AdminSpace.get_instance().login);
+                    }
+                    break;
+                // addtable $name $type
+                case "addtable":
+                    if (args.Length == 3)
+                    {
+                        command = new Command(args, AdminSpace.get_instance(), AdminSpace.get_instance().create_table);
+                    }
+                    break;
+                // rmtable $name
+                case "rmtable":
+                    if (args.Length == 2)
+                    {
+                        command = new Command(args, AdminSpace.get_instance(), AdminSpace.get_instance().delete_table);
+                    }
+                    break;
                 default:
                     break;
             }
@@ -515,5 +534,69 @@ namespace sturvey_app.Components
             }
         }
 
+    }
+
+    public class AdminSpace : IExecuter
+    {
+        private static AdminSpace m_instance_ = new AdminSpace();
+        public static AdminSpace get_instance() { return m_instance_; }
+        IEventHandler m_event_handler_;
+        private AdminSpace()
+        {
+            m_event_handler_ = EventHandler.get_instance();
+        }
+
+        private string m_key_hash_ = "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"; //Passcode: 123456
+
+        public status login(string[]args) { return status.SUCCESS; }
+        public status create_table(string[] args) { return status.SUCCESS; }
+        public status delete_table(string[] args) { return status.SUCCESS; }
+
+        public status execute(Command command, Requester tuple)
+        {
+            return command.Request(command.Args);
+        }
+
+        private class EventHandler : IEventHandler
+        {
+            private static EventHandler m_instance_ = new EventHandler();
+            public static EventHandler get_instance() { return m_instance_; }
+
+            private EventHandler()
+            {
+                sign();
+                Thread handler = new Thread(handler_task);
+                handler.Start();
+            }
+            private Queue<Event> m_event_queue_ = new Queue<Event>();
+
+            public void handler_task()
+            {
+                while (true)
+                {
+                    Thread.Sleep(500);
+                    while (m_event_queue_.Count != 0)
+                    {
+                        handle();
+                    }
+                }
+            }
+            private void handle()
+            {
+                Event evt = m_event_queue_.Dequeue();
+            }
+            public void queue(Event evt)
+            {
+                m_event_queue_.Enqueue(evt);
+            }
+            public void raise(Event evt)
+            {
+                EventManager.get_instance().raise(evt);
+            }
+            public void sign()
+            {
+                EventManager.get_instance().sign(this);
+            }
+        }
     }
 }
