@@ -77,8 +77,8 @@ namespace sturvey_app.Surveys
     public class Survey : IUnique
     {
         private ID m_id_;
-        private List<KeyValuePair<string,List<string>>> m_survey_ = new List<KeyValuePair<string, List<string>>>();
-        private List<KeyValuePair<string, List<int>>> m_votes_ = new List<KeyValuePair<string, List<int>>>();
+        private List<KeyValuePair<string,List<string>>> m_survey_ = new List<KeyValuePair<string, List<string>>>(); //pair[0] is question, pair[1] is list of answers
+        private List<List<int>> m_votes_ = new List<List<int>>(); //index is question number, the value is list of votes for that question (index 0 number of votes for answer 0 ...)
         public Survey() { } // Empty Constructor for loader
         public Survey(ID id)
         {
@@ -107,7 +107,7 @@ namespace sturvey_app.Surveys
                 return m_survey_;
             }
         }
-        public List<KeyValuePair<string, List<int>>> votes
+        public List<List<int>> votes
         {
             get
             {
@@ -119,7 +119,7 @@ namespace sturvey_app.Surveys
     {
         public ID id;
         public List<KeyValuePair<string, List<string>>> survey = new List<KeyValuePair<string, List<string>>>();
-        public List<KeyValuePair<string, List<int>>> votes = new List<KeyValuePair<string, List<int>>>();
+        public List<List<int>> votes = new List<List<int>>();
         public Survey_Data(Survey survey_)
         {
             id = survey_.id();
