@@ -22,21 +22,18 @@ namespace main
             Logger logger = Logger.get_instance();
             AdminSpace admin_space = AdminSpace.get_instance();
             TcpListener server = new TcpListener(IP, PORT);
-            event_manager.raise(new Event().setMessage("Server on"));
 
             server.Start();
 
             while (true)
             {
                 TcpClient client = server.AcceptTcpClient();
-                event_manager.raise(new Event().setMessage("New connection from " + client.Client.RemoteEndPoint.ToString()));
                 session_manager.create_session(client);
             }
         }
 
         static void Main(string[] args)
         {
-
             start_app(); 
         }
     }

@@ -217,6 +217,7 @@ namespace sturvey_app.Components
         private SessionManager()
         {
             m_event_handler_ = EventHandler.get_instance();
+            m_event_handler_.setHandlerField(sessions);
             m_createM_ = new Mutex();
             m_deleteM_ = new Mutex();
             session_cleaner = new Thread(sessions_cleaner_task);
@@ -306,8 +307,15 @@ namespace sturvey_app.Components
                 Thread handler = new Thread(handler_task);
                 handler.Start();
             }
-            private Queue<Event> m_event_queue_ = new Queue<Event>();
 
+            private Queue<Event> m_event_queue_ = new Queue<Event>();
+            //-----------Handled Class fields--------------//
+            private Dictionary<ID, Session> m_sessions_;
+            public void setHandlerField(Dictionary<ID,Session> sessions)
+            {
+                m_sessions_ = sessions;
+            }
+            //---------------------------------------------//
             public void handler_task()
             {
                 while (true)

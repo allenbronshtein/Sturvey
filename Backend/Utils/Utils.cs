@@ -129,7 +129,7 @@ namespace sturvey_app.Comands
         private string m_msg_ = default(string);
         private DateTime m_datetime_ = default(DateTime);
         private string m_reporter_ = default(string);
-
+        private ID m_sid_ = default(ID);
         public event_title Title
         {
             get { return m_title_; }
