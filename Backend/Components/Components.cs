@@ -1,13 +1,15 @@
 ﻿using sturvey_app.Comands;
 using sturvey_app.Data;
 using sturvey_app.Security;
+using sturvey_app.Users;
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using ID = System.Int32;
-using Requester = System.Tuple<int, int>; // <UID,SID>
+using Newtonsoft.Json;
+
 namespace sturvey_app.Components
 {
     public interface IExecuter
@@ -35,21 +37,115 @@ namespace sturvey_app.Components
         public Event sign_up(string[] args, Requester requester)
         {
             Event evt = new Event();
+            evt.setTitle(event_title.NEW_USER_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if(requester.UID != default(ID))
+            {
+                evt.setResponse("Already logged in");
+                return evt;
+            }
+            ID user_id;
+            try
+            {
+                user_id = Int32.Parse(args[1]);
+                if(user_id <= 0)
+                {
+                    evt.setResponse("User id cannot be less than 1");
+                    return evt;
+                }
+            }
+            catch (FormatException)
+            {
+                evt.setResponse("User id must contain only numbers");
+                return evt;
+            }            
+            string password = args[2];
+            IUnique item = DataBase.get_instance().read_from_table("Users", user_id);
+            if(item != default(IUnique))
+            {
+                evt.setResponse("User already exists");
+                return evt;
+            }
+            User user = new User(user_id, password);
+            status st = DataBase.get_instance().add_to_table("Users", user);
+            if(st == status.FAIL)
+            {
+                evt.setResponse("Unknown error - Failed adding user");
+                return evt;
+            }
+            evt.setStatus(status.SUCCESS).setUID(user_id).setResponse("Welcome");
             return evt;
         }
         public Event login(string[] args, Requester requester)
         {
             Event evt = new Event();
+            ID user_id;
+            if (requester.UID != default(ID))
+            {
+                evt.setResponse("Already logged in");
+                return evt;
+            }
+            evt.setTitle(event_title.NEW_USER_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            try
+            {
+                user_id = Int32.Parse(args[1]);
+                if (user_id <= 0)
+                {
+                    evt.setResponse("Can not find user");
+                    return evt;
+                }
+            }
+            catch (FormatException)
+            {
+                evt.setResponse("Can not find user");
+                return evt;
+            }
+            string password = args[2];
+            IUnique item = DataBase.get_instance().read_from_table("Users", user_id);
+            if (item == default(IUnique))
+            {
+                evt.setResponse("Can not find user");
+                return evt;
+            }
+            User user = (User)item;
+            if(user.Password != Hash.ComputeSha256Hash(password))
+            {
+                evt.setResponse("Incorrect password");
+                return evt;
+            }
+            evt.setStatus(status.SUCCESS).setResponse("Welcome!").setUID(user_id);
+
+
+
             return evt;
         }
         public Event logout(string[] args, Requester requester)
         {
             Event evt = new Event();
+            evt.setTitle(event_title.LOGOUT_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if(requester.UID == default(ID))
+            {
+                evt.setResponse("Not logged in");
+                return evt;
+            }
+            evt.setStatus(status.SUCCESS).setResponse("Logged out");
             return evt;
         }
         public Event delete_user(string[] args, Requester requester)
         {
             Event evt = new Event();
+            evt.setTitle(event_title.DELETE_USER_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if(requester.UID == default(ID))
+            {
+                evt.setResponse("Not logged in");
+                return evt;
+            }
+            if (requester.UID == (ID)UID.ADMIN_UID)
+            {
+                evt.setResponse("Cannot remove user");
+                return evt;
+            }
+            DataBase.get_instance().delete_from_table("Users", requester.UID);
+            evt.setStatus(status.SUCCESS).setResponse("User removed");
             return evt;
         }
 
@@ -221,6 +317,8 @@ namespace sturvey_app.Components
             private ID m_user_id_;
             private ID m_session_id_;
             private Byte[] m_in_;
+            private Byte[] m_out_;
+
             public Session(TcpClient client, ID session_id)
             {
                 m_session_id_ = session_id;
@@ -233,16 +331,33 @@ namespace sturvey_app.Components
             public void run_task()
             {
                 int i;
-                while ((i = m_stream_.Read(m_in_, 0, m_in_.Length)) != 0)
+                try
                 {
-                    Command command = hostAPI.get_instance().parse(Encoding.ASCII.GetString(m_in_, 0, i));
-                    if (command != default(Command))
+                    while ((i = m_stream_.Read(m_in_, 0, m_in_.Length)) != 0 && m_client_.Connected)
                     {
-                        Event evt = command.Executer.execute(command, new Requester(m_user_id_, m_session_id_));
-                        EventManager.get_instance().raise(evt);
+                        Command command = hostAPI.get_instance().parse_command(Encoding.ASCII.GetString(m_in_, 0, i));
+                        Event evt = new Event();
+                        if (command != default(Command))
+                        {
+                            evt = command.Executer.execute(command, new Requester(m_user_id_, m_session_id_));
+                            EventManager.get_instance().raise(evt);
+                        }
+                        else
+                        {
+                            evt.setTitle(event_title.NEW_COMMAND_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setResponse("Received bad command");
+                        }
+                        evt.setUID(m_user_id_).setSID(m_session_id_);
+                        m_out_ = Encoding.ASCII.GetBytes(hostAPI.get_instance().parse_resonse(evt));
+                        m_stream_.Write(m_out_, 0, m_out_.Length);
                     }
                 }
-                m_session_id_ = -1;
+                catch (Exception)
+                {
+                }
+                finally
+                {
+                    m_session_id_ = (ID)SID.UNAVAILABLE_SID;
+                }
             }
 
             public ID id()
@@ -348,8 +463,6 @@ namespace sturvey_app.Components
             private EventHandler()
             {
                 sign();
-                Thread handler = new Thread(handler_task);
-                handler.Start();
             }
 
             private Queue<Event> m_event_queue_ = new Queue<Event>();
@@ -360,17 +473,6 @@ namespace sturvey_app.Components
                 m_sessions_ = sessions;
             }
             //---------------------------------------------//
-            public void handler_task()
-            {
-                while (true)
-                {
-                    Thread.Sleep(500);
-                    while (m_event_queue_.Count != 0)
-                    {
-                        handle();
-                    }
-                }
-            }
             private void handle()
             {
                 Event evt = m_event_queue_.Dequeue();
@@ -383,11 +485,38 @@ namespace sturvey_app.Components
                             m_sessions_[evt.SID].UserID = (ID) UID.ADMIN_UID;  
                         }
                         break;
+                    case (int)event_title.NEW_USER_EVENT:
+                        if (evt.Status == status.SUCCESS)
+                        {
+                            m_sessions_[evt.SID].UserID = evt.UID;
+                        }
+                        break;
+                    case (int)event_title.LOGIN_EVENT:
+                        if (evt.Status == status.SUCCESS)
+                        {
+                            m_sessions_[evt.SID].UserID = evt.UID;
+                        }
+                        break;
+                    case (int)event_title.LOGOUT_EVENT:
+                        if (evt.Status == status.SUCCESS)
+                        {
+                            m_sessions_[evt.SID].UserID = default(ID);
+                        }
+                        break;
+                    case (int)event_title.DELETE_USER_EVENT:
+                        if (evt.Status == status.SUCCESS)
+                        {
+                            m_sessions_[evt.SID].UserID = default(ID);
+                        }
+                        break;
+                    default:
+                        break;
                 }
             }
             public void queue(Event evt)
             {
                 m_event_queue_.Enqueue(evt);
+                handle();
             }
             public void raise(Event evt)
             {
@@ -456,7 +585,7 @@ namespace sturvey_app.Components
 
         private EventHandler m_event_handler_;
 
-        public Command parse(string user_input)
+        public Command parse_command(string user_input)
         {
 
             Command command = default(Command);
@@ -548,10 +677,21 @@ namespace sturvey_app.Components
                         command = new Command(args, AdminSpace.get_instance(), AdminSpace.get_instance().delete_table);
                     }
                     break;
+                case "stop":
+                    if (args.Length == 1)
+                    {
+                        command = new Command(args, AdminSpace.get_instance(), AdminSpace.get_instance().stop);
+                    }
+                    break;
                 default:
                     break;
             }
             return command;
+        }
+        public string parse_resonse(Event evt)
+        {
+            string output = JsonConvert.SerializeObject(evt);
+            return output;
         }
 
         private class EventHandler : IEventHandler
@@ -612,48 +752,73 @@ namespace sturvey_app.Components
 
         public Event login(string[]args, Requester requester) {
             Event evt = new Event();
-            evt.setTitle(event_title.ADMIN_LOGIN_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.Item2);
+            if (requester.UID != default(ID))
+            {
+                evt.setResponse("Already logged in");
+                return evt;
+            }
+            evt.setTitle(event_title.ADMIN_LOGIN_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
             if (Hash.ComputeSha256Hash(args[1]) == m_key_hash_)
             {
-                evt.setStatus(status.SUCCESS).setMessage("Admin logged in");
+                evt.setStatus(status.SUCCESS).setResponse("Welcome!");
+                return evt;
             }
+            evt.setResponse("Incorrect password");
             return evt;
         }
         public Event create_table(string[] args, Requester requester) {
             Event evt = new Event();
-            status status = status.FAIL;
-            evt.setTitle(event_title.NEW_TABLE_EVENT).setDatetime(DateTime.Now).setSID(requester.Item2);
-            if (requester.Item1 != (ID) UID.ADMIN_UID)
+            evt.setTitle(event_title.NEW_TABLE_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if (requester.UID != (ID) UID.ADMIN_UID)
             {
-                evt.setStatus(status);
+                evt.setResponse("Must be admin to invoke command");
             }
             else
             {
-                status = DataBase.get_instance().create_table(args[1], "sturvey_app.Users." + args[2]);
-                evt.setStatus(status);
+                status status = DataBase.get_instance().create_table(args[1], "sturvey_app.Users." + args[2]);
                 if (status == status.SUCCESS)
                 {
-                    evt.setMessage("Created Table");
+                    evt.setStatus(status.SUCCESS).setResponse("Table created");
+                }
+                else
+                {
+                    evt.setResponse("Couldn't create table");
                 }
             }
             return evt;
         }
         public Event delete_table(string[] args,Requester requester) {
             Event evt = new Event();
-            status status = status.FAIL;
-            evt.setTitle(event_title.DELETE_TABLE_EVENT).setDatetime(DateTime.Now).setSID(requester.Item2);
-            if (requester.Item1 != (ID) UID.ADMIN_UID)
+            evt.setTitle(event_title.DELETE_TABLE_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if (requester.UID != (ID) UID.ADMIN_UID)
             {
-                evt.setStatus(status);
+                evt.setResponse("Must be admin to invoke command");
             }
             else
             {
-                status = DataBase.get_instance().delete_table(args[1]);
-                evt.setStatus(status);
+                status status = DataBase.get_instance().delete_table(args[1]);
                 if (status == status.SUCCESS)
                 {
-                    evt.setMessage("Deleted Table");
+                    evt.setStatus(status.SUCCESS).setResponse("Deleted Table");
                 }
+                else
+                {
+                    evt.setResponse("Couldn't delete table");
+                }
+            }
+            return evt;
+        }
+        public Event stop(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            evt.setTitle(event_title.DELETE_TABLE_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if (requester.UID != (ID)UID.ADMIN_UID)
+            {
+                evt.setResponse("Must be admin to invoke command");
+            }
+            else
+            {
+                Environment.Exit(0);
             }
             return evt;
         }

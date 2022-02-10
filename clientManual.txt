@@ -1,0 +1,27 @@
+============================User Manuel===============================
+
+$user_id = integer > 0
+
+-USER RELATED OPERATIONS-
+
+Operation 	| Command
+Login     	| login $userid $password 
+Signup    	| adduser $userid $password
+Logout    	| logout
+Remove user	| rmuser 
+Disconnect  | break [Hint: can close window as well :)]
+
+-SURVEY RELATED OPERATIONS (Must be logged in)-
+
+Operation 	| Command
+
+
+
+-ADMIN RELATED OPERATIONS- 
+
+Operation 	| Command
+Admin login 	| admin $password [Hint: password is 123456]
+Create table	| addtable $table_name $table_type
+Delete table	| rmtable $table_name
+Stop server     | stop
+======================================================================

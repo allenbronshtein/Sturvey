@@ -1,7 +1,6 @@
 ﻿using sturvey_app.Components;
 using System;
-using Requester = System.Tuple<int, int>; // <UID,SID>
-using Request = System.Func<string[], System.Tuple<int, int>, sturvey_app.Comands.Event>; //First argument args array, second argument requester
+using Request = System.Func<string[], sturvey_app.Comands.Requester, sturvey_app.Comands.Event>; //First argument args array, second argument requester, last is return value
 using ID = System.Int32;
 namespace sturvey_app.Comands
 {
@@ -77,6 +76,7 @@ namespace sturvey_app.Comands
         FIRST_HOSTAPI_EVENT,// <----BORDER
 
         NEW_COMMAND_EVENT,
+        GET_MANUAL_EVENT,
 
         LAST_HOSTAPI_EVENT,// <----BORDER
         //DataBase Suites Events
@@ -136,12 +136,14 @@ namespace sturvey_app.Comands
 
     public class Event
     {
-        private event_title m_title_ = default(event_title);
-        private status m_status_ = default(status) ;
-        private string m_msg_ = default(string);
-        private DateTime m_datetime_ = default(DateTime);
-        private string m_reporter_ = default(string);
-        private ID m_sid_ = default(ID);
+        private event_title m_title_ = default(event_title); //event title
+        private status m_status_ = default(status) ; // status (Success, Fail)
+        private string m_msg_ = default(string); // Message to be printed by logger
+        private DateTime m_datetime_ = default(DateTime); // Time of event
+        private string m_reporter_ = default(string); // Which component reported the event
+        private ID m_sid_ = default(ID); // Session ID that caused the event
+        private ID m_uid_ = default(ID); // User ID that caused the event
+        private string m_executer_response_ = default(string); //Executer answer, additional data
         public event_title Title
         {
             get { return m_title_; }
@@ -165,6 +167,14 @@ namespace sturvey_app.Comands
         public ID SID
         {
             get { return m_sid_; }
+        }
+        public ID UID
+        {
+            get { return m_uid_; }
+        }
+        public string ExecuterResponse
+        {
+            get { return m_executer_response_; }
         }
 
         public Event setTitle(event_title title)
@@ -196,6 +206,35 @@ namespace sturvey_app.Comands
         {
             m_sid_ = id;
             return this;
+        }
+        public Event setUID(ID id)
+        {
+            m_uid_ = id;
+            return this;
+        }
+        public Event setResponse(string reponse)
+        {
+            m_executer_response_ = reponse;
+            return this;
+        }
+    }
+
+    public class Requester
+    {
+        private ID m_uid_;
+        private ID m_sid_;
+        public Requester(ID uid, ID sid)
+        {
+            m_uid_ = uid;
+            m_sid_ = sid;
+        }
+        public ID UID
+        {
+            get { return m_uid_; }
+        }
+        public ID SID
+        {
+            get { return m_sid_; }
         }
     }
 }

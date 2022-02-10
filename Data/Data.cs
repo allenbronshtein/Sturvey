@@ -174,31 +174,39 @@ namespace sturvey_app.Data
         //---------------API--------------//
         public status create_table(string table_name, Type table_type) {
             m_createM_.WaitOne();
+            status status = status.FAIL;
             if (!m_tables_.ContainsKey(table_name))
             {
                 m_tables_[table_name] = new Table(table_type.FullName);
+                status = status.SUCCESS;
+
             }
             m_createM_.ReleaseMutex();
-            return status.SUCCESS;
+            return status;
         }
         public status create_table(string table_name, string table_type)
         {
             m_createM_.WaitOne();
+            status status = status.FAIL;
             if (!m_tables_.ContainsKey(table_name))
             {
                 m_tables_[table_name] = new Table(table_type);
+                status = status.SUCCESS;
             }
             m_createM_.ReleaseMutex();
-            return status.SUCCESS;
+            return status;
         }
         public status delete_table(string table_name) {
             m_deleteM_.WaitOne();
+            status status = status.FAIL;
             if (m_tables_.ContainsKey(table_name))
             {
                 m_tables_.Remove(table_name);
+                status = status.SUCCESS;
+
             }
             m_deleteM_.ReleaseMutex();
-            return status.SUCCESS;
+            return status;
         }
         public status add_to_table(string table_name, IUnique value)
         {
@@ -222,7 +230,7 @@ namespace sturvey_app.Data
         }
         public status update_table_value(string table_name, IUnique value)
         {
-            status status = status.SUCCESS;
+            status status = status.FAIL;
             Table table = get_table(table_name);
             if (table != default(Table))
             {
@@ -232,7 +240,7 @@ namespace sturvey_app.Data
         }
         public status delete_from_table(string table_name, ID key)
         {
-            status status = status.SUCCESS;
+            status status = status.FAIL;
             Table table = get_table(table_name);
             if (table != default(Table))
             {
