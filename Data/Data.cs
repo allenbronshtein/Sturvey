@@ -1,6 +1,4 @@
 ﻿using Newtonsoft.Json;
-using sturvey_app.Surveys;
-using sturvey_app.Users;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -10,6 +8,7 @@ using sturvey_app.Security;
 using System.Threading;
 using sturvey_app.Comands;
 using sturvey_app.Components;
+using sturvey_app.Uniques;
 
 namespace sturvey_app.Data
 {
@@ -126,35 +125,12 @@ namespace sturvey_app.Data
             }
             public void save_to_disk(string dir, string file_name)
             {
-                IDictionary dup = default(IDictionary);
-
-                void _switch()
-                {
-                    if (m_valT_ == typeof(User).FullName) // case
-                    {
-                        dup = new Dictionary<ID, User_Data>();
-                        foreach (var key in m_data_.Keys)
-                        {
-                            dup[key] = new User_Data((User)m_data_[key]);
-                        }
-                    }// end case
-                    if (m_valT_ == typeof(Survey).FullName) // case
-                    {
-                        dup = new Dictionary<ID, Survey_Data>();
-                        foreach (var key in m_data_.Keys)
-                        {
-                            dup[key] = new Survey_Data((Survey)m_data_[key]);
-                        }
-                    }// end case
-                }
-
-                _switch();
                 string location = dir + file_name + ".json";
                 if (File.Exists(location))
                 {
                     File.Delete(location);
                 }
-                var serialized = JsonConvert.SerializeObject(dup);
+                var serialized = JsonConvert.SerializeObject(m_data_);
                 if (serialized != "null")
                 {
                     string content = serialized + "\n" + m_valT_.ToString() + "\n" + file_name + "\n";

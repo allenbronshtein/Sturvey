@@ -2,7 +2,19 @@ import json
 import socket
 import os
 HOST = '127.0.0.1'  
-PORT = 6000        
+PORT = 6000
+
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 GUEST_ID = 0
 ADMIN_ID = -1
@@ -44,6 +56,5 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if data is None:
                 data = response["Message"]
             os.system("clear")
-            print(f'{man_content}\nUser: {uid}\nServer response: {data}\nStatus: {status}')
-            print("==========================================================")
-            
+            print(f'{man_content}{bcolors.OKCYAN}\nUser: {uid}\nServer response: {data}\nStatus: {status}'
+                  f'{bcolors.ENDC}')

@@ -1,7 +1,7 @@
 ﻿using sturvey_app.Comands;
 using sturvey_app.Data;
 using sturvey_app.Security;
-using sturvey_app.Users;
+using sturvey_app.Uniques;
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
@@ -9,13 +9,16 @@ using System.Text;
 using System.Threading;
 using ID = System.Int32;
 using Newtonsoft.Json;
+using sturvey_app.Backend.Parsers;
+using System.IO;
 
 namespace sturvey_app.Components
 {
     public interface IExecuter
     {
         Event execute(Command command, Requester tuple);
-    } //Implemented by classes that can execute commands 
+    } //Implemented by classes that can execute commands
+    
     public interface IEventHandler {
         void sign();
         void queue(Event evt);
@@ -144,6 +147,19 @@ namespace sturvey_app.Components
                 evt.setResponse("Cannot remove user");
                 return evt;
             }
+            User user = (User) DataBase.get_instance().read_from_table("Users", requester.UID);
+            foreach(ID survey_id in user.SurveysByMe)
+            {
+                string[] _args = {"rmsurvey",survey_id.ToString()};
+                SurveyManager.get_instance().delete_survey(_args, requester);
+            }
+            foreach(ID survey_id in user.SurveysToMe)
+            {
+                Survey _survey = (Survey)DataBase.get_instance().read_from_table("Surveys", survey_id);
+                List<ID> users = _survey.Users;
+                users.Remove(requester.UID);
+                _survey.Users = users;
+            }
             DataBase.get_instance().delete_from_table("Users", requester.UID);
             evt.setStatus(status.SUCCESS).setResponse("User removed");
             return evt;
@@ -205,35 +221,100 @@ namespace sturvey_app.Components
         public static SurveyManager get_instance() { return m_instance_; }
         private SurveyManager() {
             m_event_handler_ = EventHandler.get_instance();
+            m_survey_creator_ = SurveyCreator.get_instance();
         }
 
         private EventHandler m_event_handler_;
+        private SurveyCreator m_survey_creator_;
 
         //------------------API---------------------//
         public Event create_survey(string[] args, Requester requester)
         {
             Event evt = new Event();
+            evt.setTitle(event_title.NEW_SURVEY_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if(requester.UID == default(ID))
+            {
+                evt.setResponse("Please login to create survey");
+                return evt;
+            }
+            User current_user = (User) DataBase.get_instance().read_from_table("Users", requester.UID);
+            Survey survey = m_survey_creator_.create(args[1]);
+            if(survey != default(Survey))
+            {
+                DataBase.get_instance().add_to_table("Surveys", survey);
+                List<ID> surveys = current_user.SurveysByMe;
+                surveys.Add(survey.id());
+                current_user.SurveysByMe = surveys;
+                List<ID> users = survey.Users;
+                foreach(ID id in users)
+                {
+                    IUnique user = DataBase.get_instance().read_from_table("Users", id);
+                    if(user != default(IUnique))
+                    {
+                        User _user = (User)user;
+                        List<ID> user_surveys = _user.SurveysToMe;
+                        user_surveys.Add(survey.id());
+                    }
+                }
+                evt.setStatus(status.SUCCESS).setResponse("Survey created");
+            }
             return evt;
         }
         public Event vote_survey(string[] args, Requester requester)
         {
             Event evt = new Event();
+            evt.setTitle(event_title.VOTE_SURVEY_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
             return evt;
         }
         public Event view_survey(string[] args, Requester requester)
         {
             Event evt = new Event();
+            evt.setTitle(event_title.VIEW_SURVEY_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
             return evt;
         }
         public Event delete_survey(string[] args, Requester requester)
         {
             Event evt = new Event();
+            ID id;
+            evt.setTitle(event_title.DELETE_SURVEY_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            User user = (User)DataBase.get_instance().read_from_table("Users", requester.UID);
+            try
+            {
+                id = Int32.Parse(args[1]);
+            }
+            catch(Exception) {
+                evt.setResponse("Survey id must be a number");
+                return evt;
+            }
+            if (!user.SurveysByMe.Contains(id))
+            {
+                evt.setResponse("You are not allowed to remove that survey!");
+                return evt;
+            }
+            if(DataBase.get_instance().read_from_table("Surveys", id) == default(IUnique))
+            {
+                evt.setResponse("No such survey");
+                return evt;
+            }
+            Survey survey = (Survey) DataBase.get_instance().read_from_table("Surveys", id);
+            List<ID> surveys_by_me = user.SurveysByMe;
+            surveys_by_me.Remove(id);
+            user.SurveysByMe = surveys_by_me;
+            foreach(ID user_id in survey.Users)
+            {
+                User _user = (User)DataBase.get_instance().read_from_table("Users", user_id);
+                List<ID> _user_surveys = _user.SurveysToMe;
+                _user_surveys.Remove(id);
+            }
+            evt.setStatus(status.SUCCESS).setResponse("Survey removed");
             return evt;
         }
         public Event clear_survey(string[] args, Requester requester)
         {
             Event evt = new Event();
+            evt.setTitle(event_title.CLEAR_SURVEY_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
             return evt;
+
         }
 
         public Event execute(Command command,Requester requester)
@@ -285,6 +366,142 @@ namespace sturvey_app.Components
             }
         }
 
+    } // Executer
+
+    public class AdminSpace : IExecuter
+    {
+        private static AdminSpace m_instance_ = new AdminSpace();
+        public static AdminSpace get_instance() { return m_instance_; }
+        IEventHandler m_event_handler_;
+        private AdminSpace()
+        {
+            m_event_handler_ = EventHandler.get_instance();
+        }
+
+        private string m_key_hash_ = "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92";
+
+        public Event login(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            if (requester.UID != default(ID))
+            {
+                evt.setResponse("Already logged in");
+                return evt;
+            }
+            evt.setTitle(event_title.ADMIN_LOGIN_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if (Hash.ComputeSha256Hash(args[1]) == m_key_hash_)
+            {
+                evt.setStatus(status.SUCCESS).setResponse("Welcome!");
+                return evt;
+            }
+            evt.setResponse("Incorrect password");
+            return evt;
+        }
+        public Event create_table(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            evt.setTitle(event_title.NEW_TABLE_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if (requester.UID != (ID)UID.ADMIN_UID)
+            {
+                evt.setResponse("Must be admin to invoke command");
+            }
+            else
+            {
+                status status = DataBase.get_instance().create_table(args[1], "sturvey_app.Uniques." + args[2]);
+                if (status == status.SUCCESS)
+                {
+                    evt.setStatus(status.SUCCESS).setResponse("Table created");
+                }
+                else
+                {
+                    evt.setResponse("Couldn't create table");
+                }
+            }
+            return evt;
+        }
+        public Event delete_table(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            evt.setTitle(event_title.DELETE_TABLE_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if (requester.UID != (ID)UID.ADMIN_UID)
+            {
+                evt.setResponse("Must be admin to invoke command");
+            }
+            else
+            {
+                status status = DataBase.get_instance().delete_table(args[1]);
+                if (status == status.SUCCESS)
+                {
+                    evt.setStatus(status.SUCCESS).setResponse("Deleted Table");
+                }
+                else
+                {
+                    evt.setResponse("Couldn't delete table");
+                }
+            }
+            return evt;
+        }
+        public Event stop(string[] args, Requester requester)
+        {
+            Event evt = new Event();
+            evt.setTitle(event_title.DELETE_TABLE_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if (requester.UID != (ID)UID.ADMIN_UID)
+            {
+                evt.setResponse("Must be admin to invoke command");
+            }
+            else
+            {
+                Environment.Exit(0);
+            }
+            return evt;
+        }
+
+        public Event execute(Command command, Requester requester)
+        {
+            return command.Request(command.Args, requester);
+        }
+
+        private class EventHandler : IEventHandler
+        {
+            private static EventHandler m_instance_ = new EventHandler();
+            public static EventHandler get_instance() { return m_instance_; }
+
+            private EventHandler()
+            {
+                sign();
+                Thread handler = new Thread(handler_task);
+                handler.Start();
+            }
+            private Queue<Event> m_event_queue_ = new Queue<Event>();
+
+            public void handler_task()
+            {
+                while (true)
+                {
+                    Thread.Sleep(500);
+                    while (m_event_queue_.Count != 0)
+                    {
+                        handle();
+                    }
+                }
+            }
+            private void handle()
+            {
+                Event evt = m_event_queue_.Dequeue();
+            }
+            public void queue(Event evt)
+            {
+                m_event_queue_.Enqueue(evt);
+            }
+            public void raise(Event evt)
+            {
+                EventManager.get_instance().raise(evt);
+            }
+            public void sign()
+            {
+                EventManager.get_instance().sign(this);
+            }
+        }
     } // Executer
 
     public class EventManager
@@ -690,6 +907,36 @@ namespace sturvey_app.Components
         }
         public string parse_resonse(Event evt)
         {
+            if (evt.UID != (ID)default(UID) && evt.UID != (ID) UID.ADMIN_UID) {
+                User user = (User)DataBase.get_instance().read_from_table("Users",evt.UID);
+                List<ID> by_me = user.SurveysByMe;
+                string by_me_str = "Surveys create by me: ";
+                List<ID> to_me = user.SurveysToMe;
+                string to_me_str = "Surveys to me: ";
+                if (by_me.Count == 0)
+                {
+                    by_me_str += "---";
+                }
+                else
+                {
+                    foreach (ID survey_id in by_me)
+                    {
+                        by_me_str += survey_id.ToString() + " ";
+                    }
+                }
+                if (to_me.Count == 0)
+                {
+                    to_me_str += "---";
+                }
+                else
+                {
+                    foreach (ID survey_id in to_me)
+                    {
+                        to_me_str += survey_id.ToString() + " ";
+                    }
+                }
+                evt.setResponse(evt.ExecuterResponse + "\n" + by_me_str + "\n" + to_me_str);
+            }
             string output = JsonConvert.SerializeObject(evt);
             return output;
         }
@@ -738,136 +985,57 @@ namespace sturvey_app.Components
 
     }
 
-    public class AdminSpace : IExecuter
+    public class SurveyCreator
     {
-        private static AdminSpace m_instance_ = new AdminSpace();
-        public static AdminSpace get_instance() { return m_instance_; }
-        IEventHandler m_event_handler_;
-        private AdminSpace()
+        private static SurveyCreator m_instance_ = new SurveyCreator();
+        public static SurveyCreator get_instance() { return m_instance_; }
+
+        private SurveyCreator()
         {
-            m_event_handler_ = EventHandler.get_instance();
+            try
+            {
+                id = Int32.Parse(File.ReadAllText(ID_DIR));
+            }
+            catch (FormatException)
+            {
+                throw new Exception("Loaded id is not a number");
+            }
         }
-
-        private string m_key_hash_ = "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92";
-
-        public Event login(string[]args, Requester requester) {
-            Event evt = new Event();
-            if (requester.UID != default(ID))
-            {
-                evt.setResponse("Already logged in");
-                return evt;
-            }
-            evt.setTitle(event_title.ADMIN_LOGIN_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
-            if (Hash.ComputeSha256Hash(args[1]) == m_key_hash_)
-            {
-                evt.setStatus(status.SUCCESS).setResponse("Welcome!");
-                return evt;
-            }
-            evt.setResponse("Incorrect password");
-            return evt;
-        }
-        public Event create_table(string[] args, Requester requester) {
-            Event evt = new Event();
-            evt.setTitle(event_title.NEW_TABLE_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
-            if (requester.UID != (ID) UID.ADMIN_UID)
-            {
-                evt.setResponse("Must be admin to invoke command");
-            }
-            else
-            {
-                status status = DataBase.get_instance().create_table(args[1], "sturvey_app.Users." + args[2]);
-                if (status == status.SUCCESS)
-                {
-                    evt.setStatus(status.SUCCESS).setResponse("Table created");
-                }
-                else
-                {
-                    evt.setResponse("Couldn't create table");
-                }
-            }
-            return evt;
-        }
-        public Event delete_table(string[] args,Requester requester) {
-            Event evt = new Event();
-            evt.setTitle(event_title.DELETE_TABLE_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
-            if (requester.UID != (ID) UID.ADMIN_UID)
-            {
-                evt.setResponse("Must be admin to invoke command");
-            }
-            else
-            {
-                status status = DataBase.get_instance().delete_table(args[1]);
-                if (status == status.SUCCESS)
-                {
-                    evt.setStatus(status.SUCCESS).setResponse("Deleted Table");
-                }
-                else
-                {
-                    evt.setResponse("Couldn't delete table");
-                }
-            }
-            return evt;
-        }
-        public Event stop(string[] args, Requester requester)
+        private string DIR = "../../CreateSurveyFiles/";
+        private string ID_DIR = "../../Backend/Components/load_id.txt";
+        private ID id = 1;
+        public Survey create(string file_name)
         {
-            Event evt = new Event();
-            evt.setTitle(event_title.DELETE_TABLE_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
-            if (requester.UID != (ID)UID.ADMIN_UID)
+
+            Survey survey = default(Survey);
+            string[] parts = file_name.Split('.');
+            string suffix = parts[parts.Length - 1];
+            IParser parser = default(IParser);
+            switch (suffix)
             {
-                evt.setResponse("Must be admin to invoke command");
+                case "xml":
+                    parser = new XMLParser();
+                    break;
+                default:
+                    break;
             }
-            else
+            if (parser != default(IParser))
             {
-                Environment.Exit(0);
-            }
-            return evt;
-        }
-
-        public Event execute(Command command, Requester requester)
-        {
-            return command.Request(command.Args, requester);
-        }
-
-        private class EventHandler : IEventHandler
-        {
-            private static EventHandler m_instance_ = new EventHandler();
-            public static EventHandler get_instance() { return m_instance_; }
-
-            private EventHandler()
-            {
-                sign();
-                Thread handler = new Thread(handler_task);
-                handler.Start();
-            }
-            private Queue<Event> m_event_queue_ = new Queue<Event>();
-
-            public void handler_task()
-            {
-                while (true)
+                survey = parser.parse(id,DIR+file_name);
+                if(survey != default(Survey))
                 {
-                    Thread.Sleep(500);
-                    while (m_event_queue_.Count != 0)
-                    {
-                        handle();
-                    }
+                    id++;
                 }
             }
-            private void handle()
-            {
-                Event evt = m_event_queue_.Dequeue();
-            }
-            public void queue(Event evt)
-            {
-                m_event_queue_.Enqueue(evt);
-            }
-            public void raise(Event evt)
-            {
-                EventManager.get_instance().raise(evt);
-            }
-            public void sign()
-            {
-                EventManager.get_instance().sign(this);
-            }
+            return survey;
         }
-    } // Executer
+        ~SurveyCreator()
+        {
+            if (File.Exists(ID_DIR))
+            {
+                File.Delete(ID_DIR);
+            }
+            File.WriteAllText(ID_DIR, id.ToString());
+        }
+    }
 }

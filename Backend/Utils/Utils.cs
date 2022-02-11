@@ -4,6 +4,13 @@ using Request = System.Func<string[], sturvey_app.Comands.Requester, sturvey_app
 using ID = System.Int32;
 namespace sturvey_app.Comands
 {
+    public enum question_type
+    {
+        OPEN,
+        UNI,
+        MULTI,
+        LAST,
+    }
     public enum UID
     {
         ADMIN_UID = -1,
@@ -61,6 +68,7 @@ namespace sturvey_app.Comands
         VOTE_SURVEY_EVENT,
         VIEW_SURVEY_EVENT,
         DELETE_SURVEY_EVENT,
+        CLEAR_SURVEY_EVENT,
 
         LAST_SURVEY_EVENT,// <----BORDER
 

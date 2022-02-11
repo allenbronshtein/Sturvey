@@ -1,6 +1,5 @@
 using sturvey_app.Components;
 using sturvey_app.Data;
-using System.Threading;
 using System.Net;
 using System.Net.Sockets;
 using System;
@@ -34,7 +33,7 @@ namespace main
 
         static void Main(string[] args)
         {
-            start_app(); 
+            start_app();  
         }
     }
 }

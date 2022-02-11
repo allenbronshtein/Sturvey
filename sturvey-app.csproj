@@ -48,6 +48,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Backend\Components\Components.cs" />
+    <Compile Include="Backend\Parsers\Parsers.cs" />
     <Compile Include="Backend\Utils\Utils.cs" />
     <Compile Include="Data\Data.cs" />
     <Compile Include="App.cs" />

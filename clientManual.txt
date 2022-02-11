@@ -1,7 +1,4 @@
 ============================User Manuel===============================
-
-$user_id = integer > 0
-
 -USER RELATED OPERATIONS-
 
 Operation 	| Command
@@ -9,13 +6,16 @@ Login     	| login $userid $password
 Signup    	| adduser $userid $password
 Logout    	| logout
 Remove user	| rmuser 
-Disconnect  | break [Hint: can close window as well :)]
+Disconnect  	| break [Hint: can close window as well :)]
 
 -SURVEY RELATED OPERATIONS (Must be logged in)-
 
 Operation 	| Command
-
-
+Create survey 	| addsurvey $survey_file_name
+Remove survey 	| rmsurvey $survey_id
+Vote		| vote $survey_id $votes_file_name
+View results	| view $survey_id
+Clear survey	| clear $survey_id
 
 -ADMIN RELATED OPERATIONS- 
 

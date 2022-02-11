@@ -1,4 +1,4 @@
-{"206228751":{"id":206228751,"password":"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92","surveys_by_me":[],"surveys_to_me":[]},"303973978":{"id":303973978,"password":"8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92","surveys_by_me":[],"surveys_to_me":[]}}
-sturvey_app.Users.User
+{"1":{"Id":1,"SurveysByMe":[],"SurveysToMe":[],"Password":"6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"}}
+sturvey_app.Uniques.User
 Users
-46dcbbf49e37509e6483b46b5cb35bd9cae0ce2e59a3a505117cae974bad6a9f
+81537b8edb8163f6cc21dd03f4e60011f849703fc5c7de33cbbfeb4c0b97e3ea
