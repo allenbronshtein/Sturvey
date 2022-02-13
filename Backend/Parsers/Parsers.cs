@@ -12,26 +12,24 @@ namespace sturvey_app.Backend.Parsers
 {
     public interface IParser
     {
-        Survey parse(ID id, string file);
+        ISurvey parse(ID user_id,ID survey_id, string file);
     }
     public class XMLParser : IParser
     {
-        public Survey parse(ID id, string file)
+        public ISurvey parse(ID user_id,ID survey_id, string file)
         {
-            Survey survey = default(Survey);
-            if (!File.Exists(file) || DataBase.get_instance().read_from_table("Surveys", id) == default(IUnique))
+            ISurvey survey = default(ISurvey);
+            if (!File.Exists(file) || DataBase.get_instance().read_from_table("Surveys", survey_id) != default(IUnique))
             {
                 return survey;
             }
             XmlDocument doc = new XmlDocument();
             doc.Load(file);
-            ID admin;
             List<ID> users = new List<ID>();
-            List<KeyValuePair<string, List<string>>> _survey = new List<KeyValuePair<string, List<string>>>() ;
+            List<Question> _survey = new List<Question>() ;
             try
             {
-                admin = Int32.Parse(doc.GetElementsByTagName("Admin")[0].InnerText);
-                IUnique u  = DataBase.get_instance().read_from_table("Users", admin);
+                IUnique u  = DataBase.get_instance().read_from_table("Users", user_id);
                 if(u == default(IUnique))
                 {
                     return survey;
@@ -62,10 +60,10 @@ namespace sturvey_app.Backend.Parsers
                 {
                     options.Add(option.InnerText);
                 }
-                KeyValuePair<string, List<string>> questionier = new KeyValuePair<string, List<string>>(question,options);
+                Question questionier = new Question(question,options);
                 _survey.Add(questionier);
             }
-            survey = new Survey(id, _survey, admin, users);
+            survey = new Survey(survey_id, _survey, user_id, users);
             return survey;
         }
     }

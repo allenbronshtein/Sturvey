@@ -9,16 +9,17 @@ using System.Threading;
 using sturvey_app.Comands;
 using sturvey_app.Components;
 using sturvey_app.Uniques;
+using Newtonsoft.Json.Linq;
 
 namespace sturvey_app.Data
+   
 {
     //----------Interfaces for storable objects--------------//
     public interface IUnique
     {
         ID id(); // Return instance ID 
-        IUnique loader(DataBlock dataBlock);
+        IUnique loader(DBlock dataBlock);
     } //Unserializable-Unserializable objects. (Private members)
-    public interface DataBlock { } // Serialable-Deserializable objects. (Public members)
     //-------------------------------------------------------//
 
     public class DataBase 
@@ -98,23 +99,33 @@ namespace sturvey_app.Data
 
             public void load_from_disk(string serialized_data)
             {
-                void load<UT,UdataT>(Type UniqueT, Type Unique_dataT)
+                void load<UT>(Type UniqueT)
                 {
-                    Dictionary<ID, UdataT> dup = JsonConvert.DeserializeObject<Dictionary<ID, UdataT>>(serialized_data);
-                    foreach (ID key in dup.Keys)
+                    JObject json = JObject.Parse(serialized_data);
+                    List<DBlock> dblocks = new List<DBlock>();
+                    foreach(var item in json)
                     {
-                        m_data_[key] = (IUnique)UniqueT.GetMethod("loader").Invoke((UT)Activator.CreateInstance(UniqueT), new object[] { dup[key] });
+                        DBlock d = new DBlock();
+                        foreach (JProperty prop in item.Value)
+                        {
+                            d.props.Add(prop);
+                        }
+                        dblocks.Add(d);
+                    }
+                    foreach (DBlock d in dblocks)
+                    {
+                        m_data_[(ID)d.props[0].Value] = (IUnique)UniqueT.GetMethod("loader").Invoke((UT)Activator.CreateInstance(UniqueT), new object[] { d });
                     }
                 }
                 void _switch()
                 {
                     if (m_valT_ == typeof(User).FullName)
                     {
-                        load<User, User_Data>(typeof(User), typeof(User_Data));
+                        load<User>(typeof(User));
                     }
                     else if (m_valT_ == typeof(Survey).FullName)
                     {
-                        load<Survey, Survey_Data>(typeof(Survey), typeof(Survey_Data));
+                        load<Survey>(typeof(Survey));
                     }
                 }
 

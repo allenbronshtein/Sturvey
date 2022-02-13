@@ -136,7 +136,7 @@ namespace sturvey_app.Components
         public Event delete_user(string[] args, Requester requester)
         {
             Event evt = new Event();
-            evt.setTitle(event_title.DELETE_USER_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            evt.setTitle(event_title.DELETE_USER_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID).setUID(requester.UID);
             if(requester.UID == default(ID))
             {
                 evt.setResponse("Not logged in");
@@ -146,19 +146,6 @@ namespace sturvey_app.Components
             {
                 evt.setResponse("Cannot remove user");
                 return evt;
-            }
-            User user = (User) DataBase.get_instance().read_from_table("Users", requester.UID);
-            foreach(ID survey_id in user.SurveysByMe)
-            {
-                string[] _args = {"rmsurvey",survey_id.ToString()};
-                SurveyManager.get_instance().delete_survey(_args, requester);
-            }
-            foreach(ID survey_id in user.SurveysToMe)
-            {
-                Survey _survey = (Survey)DataBase.get_instance().read_from_table("Surveys", survey_id);
-                List<ID> users = _survey.Users;
-                users.Remove(requester.UID);
-                _survey.Users = users;
             }
             DataBase.get_instance().delete_from_table("Users", requester.UID);
             evt.setStatus(status.SUCCESS).setResponse("User removed");
@@ -226,6 +213,7 @@ namespace sturvey_app.Components
 
         private EventHandler m_event_handler_;
         private SurveyCreator m_survey_creator_;
+        private string VOTE_DIR = "../../VoteSurveyFiles/";
 
         //------------------API---------------------//
         public Event create_survey(string[] args, Requester requester)
@@ -238,22 +226,23 @@ namespace sturvey_app.Components
                 return evt;
             }
             User current_user = (User) DataBase.get_instance().read_from_table("Users", requester.UID);
-            Survey survey = m_survey_creator_.create(args[1]);
-            if(survey != default(Survey))
+            IUnique u_survey = m_survey_creator_.create(requester.UID,args[1]);
+            if(u_survey != default(IUnique))
             {
-                DataBase.get_instance().add_to_table("Surveys", survey);
+                ISurvey survey = (ISurvey)u_survey;
+                DataBase.get_instance().add_to_table("Surveys", u_survey);
                 List<ID> surveys = current_user.SurveysByMe;
                 surveys.Add(survey.id());
                 current_user.SurveysByMe = surveys;
-                List<ID> users = survey.Users;
+                List<ID> users = survey.get_users();
                 foreach(ID id in users)
                 {
-                    IUnique user = DataBase.get_instance().read_from_table("Users", id);
-                    if(user != default(IUnique))
+                    if(DataBase.get_instance().read_from_table("Users", id) != default(IUnique))
                     {
-                        User _user = (User)user;
-                        List<ID> user_surveys = _user.SurveysToMe;
+                        User user = (User)DataBase.get_instance().read_from_table("Users", id);
+                        List<ID> user_surveys = user.SurveysToMe;
                         user_surveys.Add(survey.id());
+                        user.SurveysToMe = user_surveys;
                     }
                 }
                 evt.setStatus(status.SUCCESS).setResponse("Survey created");
@@ -264,12 +253,67 @@ namespace sturvey_app.Components
         {
             Event evt = new Event();
             evt.setTitle(event_title.VOTE_SURVEY_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            ID survey_id;
+            try
+            {
+                survey_id = Int32.Parse(args[1]);
+            }
+            catch (Exception)
+            {
+                evt.setResponse("Survey id must be a number");
+                return evt;
+            }
+            if(DataBase.get_instance().read_from_table("Surveys",survey_id) == default(IUnique))
+            {
+                evt.setResponse("Survey doesn't exist");
+                return evt;
+            }
+            ISurvey survey = (ISurvey)DataBase.get_instance().read_from_table("Surveys", survey_id);
+            if (!survey.get_users().Contains(requester.UID))
+            {
+                evt.setResponse("User not priviliged to vote survey");
+                return evt;
+            }
+            if(!File.Exists(VOTE_DIR + args[2]))
+            {
+                evt.setResponse("User answers not found");
+                return evt;
+            }
+            string[] answers = File.ReadAllText(VOTE_DIR + args[2]).Split('\n');
+            if(answers.Length != survey.get_number_of_questions())
+            {
+                evt.setResponse("Number of answers doesn't match number of questions");
+                return evt;
+            }
             return evt;
         }
         public Event view_survey(string[] args, Requester requester)
         {
             Event evt = new Event();
             evt.setTitle(event_title.VIEW_SURVEY_EVENT).setStatus(status.FAIL).setDatetime(DateTime.Now).setSID(requester.SID);
+            if (requester.UID == default(ID))
+            {
+                evt.setResponse("Must be logged in");
+                return evt;
+            }
+            ID survey_id;
+            try
+            {
+                survey_id = Int32.Parse(args[1]);
+            }
+            catch (Exception)
+            {
+                evt.setResponse("Unavailable survey number");
+                return evt;
+            }
+            User user = (User)DataBase.get_instance().read_from_table("Users", requester.UID);
+            if (!user.SurveysToMe.Contains(survey_id))
+            {
+                evt.setResponse("User not presmissioned to watch survey");
+                return evt;
+            }
+            ISurvey survey = (ISurvey)DataBase.get_instance().read_from_table("Surveys", survey_id);
+            survey.
             return evt;
         }
         public Event delete_survey(string[] args, Requester requester)
@@ -300,11 +344,12 @@ namespace sturvey_app.Components
             List<ID> surveys_by_me = user.SurveysByMe;
             surveys_by_me.Remove(id);
             user.SurveysByMe = surveys_by_me;
-            foreach(ID user_id in survey.Users)
+            foreach (ID user_id in survey.Users)
             {
                 User _user = (User)DataBase.get_instance().read_from_table("Users", user_id);
                 List<ID> _user_surveys = _user.SurveysToMe;
                 _user_surveys.Remove(id);
+                _user.SurveysToMe = _user_surveys;
             }
             evt.setStatus(status.SUCCESS).setResponse("Survey removed");
             return evt;
@@ -341,7 +386,7 @@ namespace sturvey_app.Components
             {
                 while (true)
                 {
-                    Thread.Sleep(500);
+                    Thread.Sleep(200);
                     while (m_event_queue_.Count != 0)
                     {
                         handle();
@@ -351,6 +396,30 @@ namespace sturvey_app.Components
             private void handle()
             {
                 Event evt = m_event_queue_.Dequeue();
+                switch (evt.Title)
+                {
+                    case event_title.DELETE_USER_EVENT:
+                        if(evt.Status == status.FAIL)
+                        {
+                            break;
+                        }
+                        User user = (User)DataBase.get_instance().read_from_table("Users", evt.UID);
+                        foreach (ID survey_id in user.SurveysByMe)
+                        {
+                            string[] _args = { "rmsurvey", survey_id.ToString() };
+                            SurveyManager.get_instance().delete_survey(_args, new Requester(evt.UID,evt.SID));
+                        }
+                        foreach (ID survey_id in user.SurveysToMe)
+                        {
+                            Survey _survey = (Survey)DataBase.get_instance().read_from_table("Surveys", survey_id);
+                            List<ID> users = _survey.Users;
+                            users.Remove(evt.UID);
+                            _survey.Users = users;
+                        }
+                        break;
+                    default:
+                        break;
+                }
             }
             public void queue(Event evt)
             {
@@ -994,7 +1063,7 @@ namespace sturvey_app.Components
         {
             try
             {
-                id = Int32.Parse(File.ReadAllText(ID_DIR));
+                survey_id = Int32.Parse(File.ReadAllText(ID_DIR));
             }
             catch (FormatException)
             {
@@ -1003,11 +1072,11 @@ namespace sturvey_app.Components
         }
         private string DIR = "../../CreateSurveyFiles/";
         private string ID_DIR = "../../Backend/Components/load_id.txt";
-        private ID id = 1;
-        public Survey create(string file_name)
+        private ID survey_id = 1;
+        public ISurvey create(ID user_id, string file_name)
         {
 
-            Survey survey = default(Survey);
+            ISurvey survey = default(ISurvey);
             string[] parts = file_name.Split('.');
             string suffix = parts[parts.Length - 1];
             IParser parser = default(IParser);
@@ -1021,10 +1090,10 @@ namespace sturvey_app.Components
             }
             if (parser != default(IParser))
             {
-                survey = parser.parse(id,DIR+file_name);
+                survey = parser.parse(user_id,survey_id,DIR+file_name);
                 if(survey != default(Survey))
                 {
-                    id++;
+                    survey_id++;
                 }
             }
             return survey;
@@ -1035,7 +1104,7 @@ namespace sturvey_app.Components
             {
                 File.Delete(ID_DIR);
             }
-            File.WriteAllText(ID_DIR, id.ToString());
+            File.WriteAllText(ID_DIR, survey_id.ToString());
         }
     }
 }
